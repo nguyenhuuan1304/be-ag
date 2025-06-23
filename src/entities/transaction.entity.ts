@@ -1,64 +1,55 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
-@Entity('transactions')
+@Entity()
 export class Transaction {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar' })
+  @Column()
   trref: string;
 
-  @Column({ type: 'varchar' })
+  @Column()
   custno: string;
 
-  @Column({ type: 'varchar' })
+  @Column()
   custnm: string;
 
   @Column({ type: 'date', nullable: true })
   tradate: Date | null;
 
-  @Column({ type: 'varchar' })
+  @Column()
   currency: string;
 
-  @Column({ type: 'decimal', precision: 15, scale: 2 })
+  @Column('float')
   amount: number;
 
-  @Column({ type: 'varchar' })
+  @Column()
   bencust: string;
 
-  @Column({ type: 'text' })
+  @Column({ nullable: true })
   remark: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  contract_number: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  status: string | null;
-
-  @Column({ type: 'varchar', nullable: true })
-  note: string | null;
-
-  @Column({ type: 'date', nullable: true })
-  expected_delivery_date: Date | null;
+  @Column({ nullable: true })
+  contract_number: string;
 
   @Column({ type: 'date', nullable: true })
   expected_declaration_date: Date | null;
 
-  @Column({ type: 'boolean', default: false })
+  @Column()
+  status: string;
+
+  @Column({ default: false })
   is_document_added: boolean;
 
-  @Column({ type: 'varchar', nullable: true })
-  updated_by: string | null;
+  @Column({ nullable: true })
+  note: string;
 
-  @UpdateDateColumn({ nullable: true })
-  updated_at: Date | null;
+  @Column({ nullable: true })
+  updated_by: string;
 
-  @CreateDateColumn()
+  @Column({ type: 'timestamp', nullable: true })
+  updated_at: Date;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 }
