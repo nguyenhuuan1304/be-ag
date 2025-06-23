@@ -1,230 +1,269 @@
-import { Repository } from 'typeorm';
-import { Transaction } from '../../entities/transaction.entity';
-import * as dayjs from 'dayjs';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, Like, LessThan, MoreThanOrEqual } from 'typeorm';
+import { Transaction } from '../../entities/transaction.entity';
+import * as XLSX from 'xlsx';
+import { format, parse } from 'date-fns';
 
+@Injectable()
 export class TransactionsService {
-  // Define status options
-  private readonly statusOptions = [
-    { id: 1, value: 'Chưa bổ sung' },
-    { id: 2, value: 'Đã bổ sung' },
-  ];
-
   constructor(
     @InjectRepository(Transaction)
-    private transactionRepo: Repository<Transaction>,
+    private transactionsRepository: Repository<Transaction>,
   ) {}
 
-  // Method to get status options
-  getStatusOptions() {
-    return this.statusOptions;
-  }
-
-  async importFromExcel(data: any[]) {
-    const transactions: Transaction[] = [];
+  async importFromExcel(rawData: any[]): Promise<number> {
+    const transactions: Partial<Transaction>[] = [];
     const errors: string[] = [];
 
-    for (const [index, row] of data.entries()) {
-      const trref = this.safeField(row, 'Trref', '\uFEFFTrref');
-      if (!trref) {
-        errors.push(`Row ${index + 1}: Missing Trref`);
-        continue;
-      }
-
-      const custno = this.safeField(row, 'Custno');
-      if (!custno) {
-        errors.push(`Row ${index + 1}: Missing Custno`);
-        continue;
-      }
-
-      const custnm = this.safeField(row, 'Custnm');
-      if (!custnm) {
-        errors.push(`Row ${index + 1}: Missing Custnm`);
-        continue;
-      }
-
-      const currency = this.safeField(row, 'Currency');
-      if (!currency) {
-        errors.push(`Row ${index + 1}: Missing Currency`);
-        continue;
-      }
-
-      const amount = Number(this.safeField(row, 'Amount') || 0);
-      if (isNaN(amount)) {
-        errors.push(`Row ${index + 1}: Invalid Amount`);
-        continue;
-      }
-
-      const remark = this.safeField(row, 'remark') || '';
-      const remarkInfo = this.parseRemark(remark);
-
-      const transactionData: Partial<Transaction> = {
-        trref,
-        custno,
-        custnm,
-        tradate: this.toDate(this.safeField(row, 'Tradate')),
-        currency,
-        amount,
-        bencust: this.safeField(row, 'bencust') || '',
-        remark,
-        contract_number: remarkInfo.contractNumber,
-        expected_delivery_date:
-          this.toDate(this.safeField(row, 'Esdate')) || remarkInfo.deliveryDate,
-        expected_declaration_date: remarkInfo.declarationDate,
-        is_document_added: false,
-        status: 'Chưa bổ sung', // Default status
-        note: null,
-        updated_by: null,
-        updated_at: null,
-      };
-
+    for (const [index, row] of rawData.entries()) {
       try {
-        const transaction = this.transactionRepo.create(transactionData);
+        if (
+          !row.Trref ||
+          !row.Custno ||
+          !row.Custnm ||
+          !row.Currency ||
+          !row.Amount ||
+          !row.bencust
+        ) {
+          errors.push(`Row ${index + 2}: Missing required fields`);
+          continue;
+        }
+
+        let tradate: Date | null = null;
+        let esdate: Date | null = null;
+
+        if (row.Tradate) {
+          try {
+            if (row.Tradate instanceof Date && !isNaN(row.Tradate.getTime())) {
+              tradate = row.Tradate;
+            } else if (typeof row.Tradate === 'number') {
+              const dateObj = XLSX.SSF.parse_date_code(row.Tradate);
+              tradate = new Date(dateObj.y, dateObj.m - 1, dateObj.d);
+            } else {
+              tradate = parse(row.Tradate, 'dd/MM/yyyy', new Date());
+              if (isNaN(tradate.getTime())) {
+                tradate = new Date(row.Tradate);
+              }
+            }
+            if (!tradate || isNaN(tradate.getTime())) {
+              errors.push(
+                `Row ${index + 2}: Invalid Tradate format (${row.Tradate})`,
+              );
+              continue;
+            }
+            tradate = new Date(
+              tradate.getFullYear(),
+              tradate.getMonth(),
+              tradate.getDate(),
+            );
+          } catch {
+            errors.push(
+              `Row ${index + 2}: Invalid Tradate format (${row.Tradate})`,
+            );
+            continue;
+          }
+        }
+
+        if (row.Esdate) {
+          try {
+            if (row.Esdate instanceof Date && !isNaN(row.Esdate.getTime())) {
+              esdate = row.Esdate;
+            } else if (typeof row.Esdate === 'number') {
+              const dateObj = XLSX.SSF.parse_date_code(row.Esdate);
+              esdate = new Date(dateObj.y, dateObj.m - 1, dateObj.d);
+            } else {
+              esdate = parse(row.Esdate, 'dd/MM/yyyy', new Date());
+              if (isNaN(esdate.getTime())) {
+                esdate = new Date(row.Esdate);
+              }
+            }
+            if (!esdate || isNaN(esdate.getTime())) {
+              errors.push(
+                `Row ${index + 2}: Invalid Esdate format (${row.Esdate})`,
+              );
+              continue;
+            }
+            esdate = new Date(
+              esdate.getFullYear(),
+              esdate.getMonth(),
+              esdate.getDate(),
+            );
+          } catch {
+            errors.push(
+              `Row ${index + 2}: Invalid Esdate format (${row.Esdate})`,
+            );
+            continue;
+          }
+        }
+
+        const contractMatch = row.remark?.match(/HD\s+([^\s,]+)/i);
+        const contract_number = contractMatch ? contractMatch[1] : null;
+
+        const transaction: Partial<Transaction> = {
+          trref: row.Trref,
+          custno: row.Custno,
+          custnm: row.Custnm,
+          tradate,
+          currency: row.Currency,
+          amount: parseFloat(row.Amount.toString().replace(/,/g, '')),
+          bencust: row.bencust,
+          remark: row.remark,
+          contract_number,
+          expected_declaration_date: esdate,
+          status: 'Chưa bổ sung',
+          is_document_added: false,
+        };
+
         transactions.push(transaction);
       } catch (error) {
         errors.push(
-          `Row ${index + 1}: Failed to create transaction - ${error instanceof Error ? error.message : 'Unknown error'}`,
+          `Row ${index + 2}: Error processing row - ${error.message}`,
         );
-        continue;
       }
     }
 
-    try {
-      const savedTransactions = await this.transactionRepo.save(transactions, {
-        chunk: 100,
-      });
-
-      return {
-        success: true,
-        savedCount: savedTransactions.length,
-        errors: errors.length > 0 ? errors : undefined,
-      };
-    } catch (error) {
-      return {
-        success: false,
-        errors: [
-          ...errors,
-          `Database error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        ],
-      };
+    if (errors.length > 0) {
+      throw new BadRequestException(`Validation errors: ${errors.join('; ')}`);
     }
-  }
 
-  async updateTransaction(
-    id: number,
-    updateData: Partial<Pick<Transaction, 'status' | 'note'>>,
-    updatedBy: string,
-  ) {
-    try {
-      const transaction = await this.transactionRepo.findOne({ where: { id } });
-      if (!transaction) {
-        throw new Error('Transaction not found');
-      }
-
-      // Validate status if provided
-      if (
-        updateData.status &&
-        !this.statusOptions.some((opt) => opt.value === updateData.status)
-      ) {
-        throw new Error(`Invalid status value: ${updateData.status}`);
-      }
-
-      await this.transactionRepo.update(id, {
-        ...updateData,
-        updated_by: updatedBy,
-        updated_at: new Date(),
-      });
-
-      return await this.transactionRepo.findOne({ where: { id } });
-    } catch (error) {
-      throw new Error(
-        `Failed to update transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      );
+    if (transactions.length > 0) {
+      await this.transactionsRepository.save(transactions);
     }
+
+    return transactions.length;
   }
 
   async findAllPaginated(page: number, limit: number, search?: string) {
-    const qb = this.transactionRepo.createQueryBuilder('transaction');
+    const where = search ? { custnm: Like(`%${search}%`) } : {};
 
-    if (search) {
-      qb.where(
-        'transaction.custnm ILIKE :search OR transaction.trref ILIKE :search',
-        {
-          search: `%${search}%`,
-        },
-      );
-    }
-
-    qb.orderBy('transaction.id', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-
-    const [data, total] = await qb.getManyAndCount();
+    const [results, total] = await this.transactionsRepository.findAndCount({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { created_at: 'DESC' },
+    });
 
     return {
-      data,
-      meta: {
-        total,
-        page,
-        limit,
-        lastPage: Math.ceil(total / limit),
-      },
+      data: results,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit),
     };
   }
 
-  private parseRemark(remark: string): {
-    contractNumber: string | null;
-    deliveryDate: Date | null;
-    declarationDate: Date | null;
-  } {
-    const regex =
-      /(In advance|Payment in advance|Deposit|TT in advance|TT trước|TT TRUOC|tạm ứng)[\s\-]*(.*?)\s*(\d{6})/i;
-    const match = remark.match(regex);
+  async findById(id: number): Promise<Transaction> {
+    const transaction = await this.transactionsRepository.findOne({
+      where: { id },
+    });
+    if (!transaction) {
+      throw new NotFoundException(`Transaction with ID ${id} not found`);
+    }
+    return transaction;
+  }
 
-    if (!match) {
-      return {
-        contractNumber: null,
-        deliveryDate: null,
-        declarationDate: null,
+  async findByStatus(
+    status: 'Chưa bổ sung' | 'Quá hạn' | 'Đã bổ sung',
+    page: number,
+    limit: number,
+  ) {
+    const today = new Date();
+    let where: any = {};
+
+    if (status === 'Quá hạn') {
+      where = {
+        expected_declaration_date: LessThan(today),
+        status: 'Chưa bổ sung',
       };
+    } else if (status === 'Chưa bổ sung') {
+      where = {
+        status: 'Chưa bổ sung',
+        expected_declaration_date: MoreThanOrEqual(today),
+      };
+    } else if (status === 'Đã bổ sung') {
+      where = { status: 'Đã bổ sung' };
+    } else {
+      throw new BadRequestException('Invalid status');
     }
 
-    const [, , contractNumber, yymmdd] = match;
-
-    const deliveryDate = this.parseYYMMDD(yymmdd);
-    const declarationDate = deliveryDate
-      ? dayjs(deliveryDate).add(30, 'day').toDate()
-      : null;
+    const [results, total] = await this.transactionsRepository.findAndCount({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { created_at: 'DESC' },
+    });
 
     return {
-      contractNumber,
-      deliveryDate,
-      declarationDate,
+      data: results,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit),
     };
   }
 
-  private parseYYMMDD(yymmdd: string): Date | null {
-    if (!/^\d{6}$/.test(yymmdd)) return null;
-    const year = +`20${yymmdd.slice(0, 2)}`;
-    const month = +yymmdd.slice(2, 4) - 1;
-    const day = +yymmdd.slice(4, 6);
-    return new Date(year, month, day);
+  async exportToExcel(status: 'Chưa bổ sung' | 'Quá hạn'): Promise<Buffer> {
+    const transactions = await this.transactionsRepository.find({
+      where:
+        status === 'Quá hạn'
+          ? {
+              expected_declaration_date: LessThan(new Date()),
+              status: 'Chưa bổ sung',
+            }
+          : {
+              status: 'Chưa bổ sung',
+              expected_declaration_date: MoreThanOrEqual(new Date()),
+            },
+    });
+
+    const data = transactions.map((t) => ({
+      Trref: t.trref,
+      Custno: t.custno,
+      Custnm: t.custnm,
+      Tradate: t.tradate ? format(t.tradate, 'dd/MM/yyyy') : '',
+      Currency: t.currency,
+      Amount: t.amount,
+      bencust: t.bencust,
+      remark: t.remark,
+      Esdate: t.expected_declaration_date
+        ? format(t.expected_declaration_date, 'dd/MM/yyyy')
+        : '',
+      Status: t.status,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
+
+    return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
   }
 
-  private toDate(value: any): Date | null {
-    if (!value) return null;
+  async updateCustomer(
+    id: number,
+    updateData: { status?: string; note?: string },
+    user: { id: number; fullName: string },
+  ) {
+    const transaction = await this.transactionsRepository.findOne({
+      where: { id },
+    });
 
-    if (typeof value === 'number') {
-      return new Date(Date.UTC(1899, 11, 30 + value));
+    if (!transaction) {
+      throw new NotFoundException(`Transaction with ID ${id} not found`);
     }
 
-    return dayjs(value).isValid() ? dayjs(value).toDate() : null;
-  }
+    const updatedTransaction = {
+      ...transaction,
+      status: updateData.status || transaction.status,
+      note: updateData.note !== undefined ? updateData.note : transaction.note,
+      updated_by: user.fullName,
+      updated_at: new Date(),
+    };
 
-  private safeField(row: any, ...keys: string[]): any {
-    for (const key of keys) {
-      if (row[key] !== undefined) return row[key];
-    }
-    return null;
+    await this.transactionsRepository.save(updatedTransaction);
+
+    return updatedTransaction;
   }
 }
