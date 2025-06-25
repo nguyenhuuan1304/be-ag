@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
+import { Customer } from './customer.entity';
 
 @Entity()
 export class Transaction {
@@ -41,6 +42,9 @@ export class Transaction {
   @Column({ default: false })
   is_document_added: boolean;
 
+  @Column({ default: false })
+  is_send_email: boolean;
+
   @Column({ nullable: true })
   note: string;
 
@@ -52,4 +56,7 @@ export class Transaction {
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
+
+  @ManyToOne(() => Customer, (customer) => customer.transactions)
+  customer: Customer;
 }

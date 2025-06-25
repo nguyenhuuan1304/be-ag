@@ -89,6 +89,7 @@ export class TransactionsController {
     @Param('status') status: 'Chưa bổ sung' | 'Quá hạn' | 'Đã bổ sung',
     @Query('page') page: string,
     @Query('limit') limit: string,
+    @Query('search') search: string,
   ) {
     if (!['Chưa bổ sung', 'Quá hạn', 'Đã bổ sung'].includes(status)) {
       throw new BadRequestException('Invalid status');
@@ -99,6 +100,7 @@ export class TransactionsController {
       status,
       pageNumber,
       limitNumber,
+      search,
     );
   }
 

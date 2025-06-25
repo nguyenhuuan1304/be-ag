@@ -1,17 +1,13 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import { Transaction } from './transaction.entity';
 
-@Entity('customers')
+@Entity()
 export class Customer {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ unique: true })
-  customer_number: string;
+  custno: string;
 
   @Column()
   customer_name: string;
@@ -19,6 +15,15 @@ export class Customer {
   @Column()
   email: string;
 
-  @CreateDateColumn()
+  @Column({ nullable: true })
+  contact_person: string;
+
+  @Column({ nullable: true })
+  phone_number: string;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
+
+  @OneToMany(() => Transaction, (transaction) => transaction.customer)
+  transactions: Transaction[];
 }

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, LessThan, MoreThanOrEqual } from 'typeorm';
+import { Repository, Like, LessThan, MoreThanOrEqual, Raw } from 'typeorm';
 import { Transaction } from '../../entities/transaction.entity';
 import * as XLSX from 'xlsx';
 import { format, parse } from 'date-fns';
@@ -117,6 +117,7 @@ export class TransactionsService {
           expected_declaration_date: esdate,
           status: 'Chưa bổ sung',
           is_document_added: false,
+          is_send_email: false,
         };
 
         transactions.push(transaction);
@@ -170,24 +171,57 @@ export class TransactionsService {
     status: 'Chưa bổ sung' | 'Quá hạn' | 'Đã bổ sung',
     page: number,
     limit: number,
+    search?: string,
   ) {
     const today = new Date();
-    let where: any = {};
+    const conditions: any = [];
 
     if (status === 'Quá hạn') {
-      where = {
+      conditions.push({
         expected_declaration_date: LessThan(today),
         status: 'Chưa bổ sung',
-      };
+      });
     } else if (status === 'Chưa bổ sung') {
-      where = {
-        status: 'Chưa bổ sung',
+      conditions.push({
         expected_declaration_date: MoreThanOrEqual(today),
-      };
+        status: 'Chưa bổ sung',
+      });
     } else if (status === 'Đã bổ sung') {
-      where = { status: 'Đã bổ sung' };
+      conditions.push({
+        status: 'Đã bổ sung',
+      });
     } else {
       throw new BadRequestException('Invalid status');
+    }
+
+    if (search) {
+      const searchLower = search.toLowerCase();
+      conditions.forEach((condition: any) => {
+        condition.custnm = Raw(
+          (alias) => `LOWER(${alias}) LIKE '%${searchLower}%'`,
+        );
+      });
+    }
+
+    const [results, total] = await this.transactionsRepository.findAndCount({
+      where: conditions,
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { created_at: 'DESC' },
+    });
+
+    return {
+      data: results,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit),
+    };
+  }
+
+  async findEmailSent(page: number, limit: number, search?: string) {
+    const where: any = { is_send_email: true };
+    if (search) {
+      where.custnm = Like(`%${search}%`);
     }
 
     const [results, total] = await this.transactionsRepository.findAndCount({
@@ -217,6 +251,7 @@ export class TransactionsService {
               status: 'Chưa bổ sung',
               expected_declaration_date: MoreThanOrEqual(new Date()),
             },
+      relations: ['customer'],
     });
 
     const data = transactions.map((t) => ({
@@ -232,6 +267,9 @@ export class TransactionsService {
         ? format(t.expected_declaration_date, 'dd/MM/yyyy')
         : '',
       Status: t.status,
+      IsSendEmail: t.is_send_email,
+      ContactPerson: t.customer?.contact_person || '',
+      PhoneNumber: t.customer?.phone_number || '',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
