@@ -255,21 +255,22 @@ export class TransactionsService {
     });
 
     const data = transactions.map((t) => ({
-      Trref: t.trref,
-      Custno: t.custno,
-      Custnm: t.custnm,
-      Tradate: t.tradate ? format(t.tradate, 'dd/MM/yyyy') : '',
-      Currency: t.currency,
-      Amount: t.amount,
-      bencust: t.bencust,
+      so_giao_dich: t.trref,
+      ma_khach_hang: t.custno,
+      ten_khach_hang: t.custnm,
+      ngay_giao_dich: t.tradate ? format(t.tradate, 'dd/MM/yyyy') : '',
+      loai_tien: t.currency,
+      so_tien: t.amount,
+      nguoi_huong_thu: t.bencust,
       remark: t.remark,
-      Esdate: t.expected_declaration_date
+      ngay_nhan_hang_du_kien: t.expected_declaration_date
         ? format(t.expected_declaration_date, 'dd/MM/yyyy')
         : '',
-      Status: t.status,
-      IsSendEmail: t.is_send_email,
-      ContactPerson: t.customer?.contact_person || '',
-      PhoneNumber: t.customer?.phone_number || '',
+      trang_thai: t.status,
+      gui_mail: t.is_send_email ? 'Đã gửi' : 'Chưa gửi',
+      ghi_chu: t.note || '',
+      // ContactPerson: t.customer?.contact_person || '',
+      // PhoneNumber: t.customer?.phone_number || '',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);

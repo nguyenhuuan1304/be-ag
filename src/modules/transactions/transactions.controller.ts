@@ -115,10 +115,16 @@ export class TransactionsController {
 
     const buffer = await this.transactionService.exportToExcel(status);
 
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('vi-VN').replaceAll('/', '-');
+
+    const filename = `report-${status}-${formattedDate}.xlsx`;
+    const encodedFilename = encodeURIComponent(filename);
+
     res.set({
       'Content-Type':
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename=report-${status}-${Date.now()}.xlsx`,
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
     });
 
     res.send(buffer);
