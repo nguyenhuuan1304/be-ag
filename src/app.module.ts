@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmConfig } from './config/typeorm.config';
 import { TransactionsModule } from './modules/transactions/transactions.module';
-import { CustomersModule } from './modules/customers/customers.module';
+import { CustomerModule } from './modules/customers/customers.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 
@@ -33,7 +33,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
       }),
     }),
     TransactionsModule,
-    CustomersModule,
+    CustomerModule,
     AuthModule,
   ],
 })
