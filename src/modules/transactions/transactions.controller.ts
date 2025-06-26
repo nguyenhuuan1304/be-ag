@@ -30,7 +30,7 @@ export class TransactionsController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: './uploads',
+        // destination: './uploads',
         filename: (req, file, callback) => {
           const filename = `${Date.now()}${extname(file.originalname)}`;
           callback(null, filename);
