@@ -32,7 +32,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@Request() req: any) {
+  async logout(@Request() req: { user?: { sub?: string } }) {
     const userId = req.user?.sub;
     if (!userId) {
       throw new UnauthorizedException('Thiếu user ID trong token');
