@@ -118,6 +118,7 @@ export class TransactionsService {
           status: 'Chưa bổ sung',
           is_document_added: false,
           is_send_email: false,
+          is_sending_email: false,
         };
 
         transactions.push(transaction);

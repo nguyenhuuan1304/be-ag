@@ -5,16 +5,19 @@ import {
   UseInterceptors,
   Get,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CustomerService } from './customers.service';
 import { Customer } from '../../entities/customer.entity';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
 interface CustomerWithTransactions extends Customer {
   transactions: any[];
 }
 
 @Controller('customers')
+@UseGuards(JwtAuthGuard)
 export class CustomerController {
   constructor(private readonly customerService: CustomerService) {}
 

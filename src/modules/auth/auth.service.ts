@@ -58,7 +58,7 @@ export class AuthService {
     });
     const refresh_token = randomBytes(32).toString('hex');
 
-    // Lưu refresh token vào database
+    // Lưu refresh token đã hash
     user.refreshToken = await bcrypt.hash(refresh_token, 10);
     await this.userRepo.save(user);
 
@@ -77,46 +77,38 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     if (!refreshToken) throw new UnauthorizedException('Thiếu refresh token');
 
-    // 1. Lấy toàn bộ user có refreshToken
-    const users = await this.userRepo.find({
+    // Tìm user dựa trên refreshToken không null
+    const user = await this.userRepo.findOne({
       where: { refreshToken: Not(IsNull()) },
     });
 
-    // 2. Tìm user nào match với refreshToken gửi lên
-    let foundUser: User | null = null;
-
-    for (const user of users) {
-      const isMatch = await bcrypt.compare(
-        refreshToken,
-        user.refreshToken || '',
-      );
-      if (isMatch) {
-        foundUser = user;
-        break;
-      }
+    if (
+      !user ||
+      !(await bcrypt.compare(refreshToken, user.refreshToken || ''))
+    ) {
+      throw new UnauthorizedException('Refresh token không hợp lệ');
     }
 
-    if (!foundUser)
-      throw new UnauthorizedException('Refresh token không hợp lệ');
-
-    // 3. Tạo token mới
+    // Tạo token mới
     const payload = {
-      sub: foundUser.id,
-      email: foundUser.email,
-      role: foundUser.role,
+      sub: user.id,
+      email: user.email,
+      role: user.role,
     };
 
     const access_token = await this.jwtService.signAsync(payload, {
       expiresIn: '15m',
     });
 
+    // Tạo và lưu refresh token mới
     const new_refresh_token = randomBytes(32).toString('hex');
-    foundUser.refreshToken = await bcrypt.hash(new_refresh_token, 10);
-    await this.userRepo.save(foundUser);
+    const hashed_new_refresh_token = await bcrypt.hash(new_refresh_token, 10);
+    user.refreshToken = hashed_new_refresh_token;
+    await this.userRepo.save(user);
 
     return {
       access_token,
-      refresh_token: new_refresh_token,
+      refresh_token: new_refresh_token, // Trả về raw token cho client
     };
   }
 

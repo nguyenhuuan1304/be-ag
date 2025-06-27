@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from '../../dto/register.dto';
 import { LoginDto } from '../../dto/login.dto';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { Public } from 'src/decorators/public.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -26,17 +27,21 @@ export class AuthController {
   }
 
   @Post('refresh')
-  async refresh(@Body() body: { refresh_token: string }) {
-    return this.authService.refreshToken(body.refresh_token);
+  @Public() // Miễn trừ guard JWT
+  async refresh(@Body('refreshToken') refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Thiếu refresh token');
+    }
+    return this.authService.refreshToken(refreshToken);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(@Request() req: any) {
+  async logout(@Request() req: { user?: { sub?: string | number } }) {
     const userId = req.user?.sub;
     if (!userId) {
       throw new UnauthorizedException('Thiếu user ID trong token');
     }
-    return this.authService.logout(userId);
+    return this.authService.logout(String(userId));
   }
 }

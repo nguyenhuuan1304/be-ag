@@ -45,6 +45,9 @@ export class Transaction {
   @Column({ default: false })
   is_send_email: boolean;
 
+  @Column({ default: false })
+  is_sending_email: boolean;
+
   @Column({ nullable: true })
   note: string;
 
