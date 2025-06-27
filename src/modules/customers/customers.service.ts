@@ -118,7 +118,6 @@ export class CustomerService {
         'tradate',
         'bencust',
         'expected_declaration_date',
-        'tradate',
         'remark',
       ],
     });
