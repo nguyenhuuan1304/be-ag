@@ -38,14 +38,16 @@ export class CustomerController {
     );
   }
 
-  @Get('with-transactions')
+  @Get('with-transactions-send-mail')
   async getCustomersWithTransactions(
     @Query('page') page: string = '1',
     @Query('pageSize') pageSize: string = '10',
+    @Query('isSendEmail') isSendEmail: boolean = false,
   ): Promise<{ customers: CustomerWithTransactions[]; total: number }> {
     return this.customerService.findCustomersWithTransactions(
       parseInt(page, 10),
       parseInt(pageSize, 10),
+      isSendEmail,
     );
   }
 }
