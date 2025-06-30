@@ -19,9 +19,11 @@ export class TransactionsService {
   async importFromExcel(rawData: any[]): Promise<number> {
     const transactions: Partial<Transaction>[] = [];
     const errors: string[] = [];
+    const trrefSet: Set<string> = new Set(); // To track Trref values in the current batch
 
     for (const [index, row] of rawData.entries()) {
       try {
+        // Check for missing required fields
         if (
           !row.Trref ||
           !row.Custno ||
@@ -34,9 +36,24 @@ export class TransactionsService {
           continue;
         }
 
+        // Skip duplicate Trref in the current batch
+        if (trrefSet.has(row.Trref)) {
+          continue; // Silently skip duplicate Trref
+        }
+        trrefSet.add(row.Trref);
+
+        // Optional: Skip if Trref already exists in the database
+        const existingTransaction = await this.transactionsRepository.findOne({
+          where: { trref: row.Trref },
+        });
+        if (existingTransaction) {
+          continue; // Silently skip if Trref exists in the database
+        }
+
         let tradate: Date | null = null;
         let esdate: Date | null = null;
 
+        // Handle Tradate
         if (row.Tradate) {
           try {
             if (row.Tradate instanceof Date && !isNaN(row.Tradate.getTime())) {
@@ -69,6 +86,7 @@ export class TransactionsService {
           }
         }
 
+        // Handle Esdate
         if (row.Esdate) {
           try {
             if (row.Esdate instanceof Date && !isNaN(row.Esdate.getTime())) {
@@ -101,6 +119,7 @@ export class TransactionsService {
           }
         }
 
+        // Handle contract extraction
         const contractMatch = row.remark?.match(/HD\s+([^\s,]+)/i);
         const contract_number = contractMatch ? contractMatch[1] : null;
 
@@ -120,6 +139,7 @@ export class TransactionsService {
           continue;
         }
 
+        // Create transaction object
         const transaction: Partial<Transaction> = {
           trref: row.Trref,
           custno: row.Custno,
@@ -130,7 +150,7 @@ export class TransactionsService {
           bencust: row.bencust,
           remark: row.remark,
           contract_number,
-          contract, 
+          contract,
           expected_declaration_date: esdate,
           status: 'Chưa bổ sung',
           is_document_added: false,
@@ -146,10 +166,12 @@ export class TransactionsService {
       }
     }
 
+    // Throw errors only for non-duplicate-related validation issues
     if (errors.length > 0) {
       throw new BadRequestException(`Validation errors: ${errors.join('; ')}`);
     }
 
+    // Save valid transactions to the database
     if (transactions.length > 0) {
       await this.transactionsRepository.save(transactions);
     }
