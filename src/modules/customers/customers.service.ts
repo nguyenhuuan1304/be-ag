@@ -4,6 +4,10 @@ import { Repository } from 'typeorm';
 import { Customer } from '../../entities/customer.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import * as xlsx from 'xlsx';
+import * as nodemailer from 'nodemailer';
+import * as fs from 'fs';
+import * as cron from 'node-cron';
+import * as dayjs from 'dayjs';
 
 interface CustomerWithTransactions extends Customer {
   transactions: Transaction[];
@@ -16,7 +20,7 @@ export class CustomerService {
     private customerRepository: Repository<Customer>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
-  ) {}
+  ) { }
 
   async processExcel(file: Express.Multer.File): Promise<void> {
     const workbook = xlsx.read(file.buffer, { type: 'buffer' });
@@ -110,6 +114,7 @@ export class CustomerService {
         'id',
         'custno',
         'is_send_email',
+        'is_sending_email',
         'trref',
         'custnm',
         'contract_number',
@@ -142,6 +147,92 @@ export class CustomerService {
       );
     }
 
+    for (const transaction of availableTransactions) {
+      if (!transaction.is_send_email && !transaction.is_sending_email) {
+        const foundCustomer = customers.find(
+          (cust) => cust.custno === transaction.custno,
+        );
+        if (foundCustomer) {
+          await this.transactionRepository.update(transaction.id, {
+            is_sending_email: true,
+          });
+          // 2. Tính ngày gửi: expected_declaration_date - 10 ngày
+          let sendDate: Date = new Date();
+          if (transaction.expected_declaration_date) {
+            sendDate = dayjs(transaction.expected_declaration_date)
+              .subtract(10, 'day')
+              .hour(8)
+              .minute(0)
+              .second(0)
+              .millisecond(0)
+              .toDate();
+          }
+          const now = new Date();
+          if (sendDate && sendDate > now) {
+            const cronTime = `${sendDate.getMinutes()} ${sendDate.getHours()} ${sendDate.getDate()} ${sendDate.getMonth() + 1} *`;
+            console.log(`⏰ Gửi email giao dịch cho ${foundCustomer.email} lúc ${sendDate.toLocaleString()}`);
+            cron.schedule(cronTime, () => {
+              this.sendEmail(
+                'nguyenhuuan1304@gmail.com',
+                foundCustomer.email,
+                'Thông báo giao dịch'
+              ).then(() => {
+                // Cập nhật is_send_email
+                this.transactionRepository.update(transaction.id, {
+                  is_send_email: true,
+                });
+              })
+                .catch((error) => {
+                  console.error("Error sending email:", error);
+                });
+            });
+          } else {
+            this.sendEmail(
+              'nguyenhuuan1304@gmail.com',
+              foundCustomer.email,
+              'Thông báo giao dịch'
+            ).then(() => {
+              // Cập nhật is_send_email
+              this.transactionRepository.update(transaction.id, {
+                is_send_email: true,
+              });
+            })
+            .catch((error) => {
+              console.error("Error sending email:", error);
+            });
+          }
+        }
+      }
+    }
+
     return { customers, total, page, lastPage: Math.ceil(total / pageSize) };
+  }
+
+  // Hàm gửi email
+  async sendEmail(from: string, to: string, subject: string) {
+    console.log(`Sending email from ${from} to ${to} with subject: ${subject}`);
+    const html = fs.readFileSync('src/modules/customers/buildHtml.html', 'utf8');
+
+    let transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: "nguyenhuuan1304@gmail.com",
+        pass: "bameltmcljiaoqan",
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    let info = await transporter.sendMail({
+      from: from,
+      to: to,
+      subject: subject,
+      html: html, // hoặc html: "<h3>Xin chào, đây là email thông báo!</h3>"
+    });
+
+    console.log("Email sent: %s", info.messageId);
   }
 }
