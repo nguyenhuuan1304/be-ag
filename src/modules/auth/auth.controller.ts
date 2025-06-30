@@ -9,6 +9,7 @@ import {
 import { AuthService } from './auth.service';
 import { RegisterDto } from '../../dto/register.dto';
 import { LoginDto } from '../../dto/login.dto';
+import { UpdatePasswordDto } from '../../dto/update-password.dto';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { Public } from 'src/decorators/public.decorator';
 
@@ -27,7 +28,7 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @Public() // Miễn trừ guard JWT
+  @Public()
   async refresh(@Body('refreshToken') refreshToken: string) {
     if (!refreshToken) {
       throw new UnauthorizedException('Thiếu refresh token');
@@ -43,5 +44,18 @@ export class AuthController {
       throw new UnauthorizedException('Thiếu user ID trong token');
     }
     return this.authService.logout(String(userId));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('update-password')
+  async updatePassword(
+    @Request() req: { user?: { sub?: string | number } },
+    @Body() dto: UpdatePasswordDto,
+  ) {
+    const userId = req.user?.sub;
+    if (!userId) {
+      throw new UnauthorizedException('Thiếu user ID trong token');
+    }
+    return this.authService.updatePassword(String(userId), dto);
   }
 }

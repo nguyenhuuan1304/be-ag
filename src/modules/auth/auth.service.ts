@@ -10,6 +10,7 @@ import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto } from '../../dto/register.dto';
 import { LoginDto } from '../../dto/login.dto';
+import { UpdatePasswordDto } from '../../dto/update-password.dto';
 import { randomBytes } from 'crypto';
 import { Not, IsNull } from 'typeorm';
 
@@ -31,7 +32,7 @@ export class AuthService {
       fullName: `${dto.firstName} ${dto.lastName}`,
       passwordHash,
       role: 'GDV_TTQT',
-      refreshToken: null, // Khởi tạo refresh token
+      refreshToken: null,
     });
 
     const savedUser = await this.userRepo.save(user);
@@ -50,15 +51,14 @@ export class AuthService {
 
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isMatch)
-      throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
+      throw new BadRequestException('Email hoặc mật khẩu không đúng');
 
     const payload = { sub: user.id, email: user.email, role: user.role };
     const access_token = await this.jwtService.signAsync(payload, {
-      expiresIn: '15m', // Access token hết hạn sau 15 phút
+      expiresIn: '15m',
     });
     const refresh_token = randomBytes(32).toString('hex');
 
-    // Lưu refresh token đã hash
     user.refreshToken = await bcrypt.hash(refresh_token, 10);
     await this.userRepo.save(user);
 
@@ -77,7 +77,6 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     if (!refreshToken) throw new UnauthorizedException('Thiếu refresh token');
 
-    // Tìm user dựa trên refreshToken không null
     const user = await this.userRepo.findOne({
       where: { refreshToken: Not(IsNull()) },
     });
@@ -89,7 +88,6 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token không hợp lệ');
     }
 
-    // Tạo token mới
     const payload = {
       sub: user.id,
       email: user.email,
@@ -100,7 +98,6 @@ export class AuthService {
       expiresIn: '15m',
     });
 
-    // Tạo và lưu refresh token mới
     const new_refresh_token = randomBytes(32).toString('hex');
     const hashed_new_refresh_token = await bcrypt.hash(new_refresh_token, 10);
     user.refreshToken = hashed_new_refresh_token;
@@ -108,7 +105,7 @@ export class AuthService {
 
     return {
       access_token,
-      refresh_token: new_refresh_token, // Trả về raw token cho client
+      refresh_token: new_refresh_token,
     };
   }
 
@@ -119,5 +116,28 @@ export class AuthService {
       await this.userRepo.save(user);
     }
     return { message: 'Đăng xuất thành công' };
+  }
+
+  async updatePassword(userId: string, dto: UpdatePasswordDto) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Không tìm thấy người dùng');
+    }
+
+    const isMatch = await bcrypt.compare(dto.oldPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new BadRequestException('Mật khẩu cũ không đúng');
+    }
+
+    if (dto.oldPassword === dto.newPassword) {
+      throw new BadRequestException('Mật khẩu mới phải khác mật khẩu cũ');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    user.passwordHash = passwordHash;
+    user.refreshToken = null; // Xóa refresh token để yêu cầu đăng nhập lại
+    await this.userRepo.save(user);
+
+    return { message: 'Cập nhật mật khẩu thành công. Vui lòng đăng nhập lại.' };
   }
 }
