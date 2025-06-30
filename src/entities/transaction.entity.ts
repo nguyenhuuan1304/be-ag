@@ -27,6 +27,9 @@ export class Transaction {
   @Column()
   bencust: string;
 
+  @Column()
+  contract: string;
+
   @Column({ nullable: true })
   remark: string;
 

@@ -104,6 +104,22 @@ export class TransactionsService {
         const contractMatch = row.remark?.match(/HD\s+([^\s,]+)/i);
         const contract_number = contractMatch ? contractMatch[1] : null;
 
+        let contract: string;
+        if (row.remark) {
+          const contractFullMatch = row.remark.match(/HD\s+[^,]+/i);
+          if (contractFullMatch) {
+            contract = contractFullMatch[0];
+          } else {
+            errors.push(
+              `Row ${index + 2}: Invalid or missing contract format in remark (${row.remark})`,
+            );
+            continue;
+          }
+        } else {
+          errors.push(`Row ${index + 2}: Missing remark field for contract`);
+          continue;
+        }
+
         const transaction: Partial<Transaction> = {
           trref: row.Trref,
           custno: row.Custno,
@@ -114,6 +130,7 @@ export class TransactionsService {
           bencust: row.bencust,
           remark: row.remark,
           contract_number,
+          contract, 
           expected_declaration_date: esdate,
           status: 'Chưa bổ sung',
           is_document_added: false,

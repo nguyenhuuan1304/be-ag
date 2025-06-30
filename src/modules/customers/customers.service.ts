@@ -5,13 +5,24 @@ import { Customer } from '../../entities/customer.entity';
 import { Transaction } from '../../entities/transaction.entity';
 import * as xlsx from 'xlsx';
 import * as nodemailer from 'nodemailer';
-import * as fs from 'fs';
 import * as cron from 'node-cron';
 import * as dayjs from 'dayjs';
 
 interface CustomerWithTransactions extends Customer {
   transactions: Transaction[];
 }
+
+export type CustomerData = {
+  trref: string;
+  custno: string;
+  custnm: string;
+  tradate: string;
+  currency: string;
+  amount: number;
+  bencust: string;
+  contract: string;
+  expected_declaration_date: string;
+};
 
 @Injectable()
 export class CustomerService {
@@ -20,7 +31,7 @@ export class CustomerService {
     private customerRepository: Repository<Customer>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
-  ) { }
+  ) {}
 
   async processExcel(file: Express.Multer.File): Promise<void> {
     const workbook = xlsx.read(file.buffer, { type: 'buffer' });
@@ -124,6 +135,7 @@ export class CustomerService {
         'bencust',
         'expected_declaration_date',
         'remark',
+        'contract',
       ],
     });
 
@@ -161,7 +173,7 @@ export class CustomerService {
           if (transaction.expected_declaration_date) {
             sendDate = dayjs(transaction.expected_declaration_date)
               .subtract(10, 'day')
-              .hour(8)
+              .hour(10)
               .minute(0)
               .second(0)
               .millisecond(0)
@@ -170,36 +182,42 @@ export class CustomerService {
           const now = new Date();
           if (sendDate && sendDate > now) {
             const cronTime = `${sendDate.getMinutes()} ${sendDate.getHours()} ${sendDate.getDate()} ${sendDate.getMonth() + 1} *`;
-            console.log(`⏰ Gửi email giao dịch cho ${foundCustomer.email} lúc ${sendDate.toLocaleString()}`);
+            console.log(
+              `⏰ Gửi email giao dịch cho ${foundCustomer.email} lúc ${sendDate.toLocaleString()}`,
+            );
             cron.schedule(cronTime, () => {
               this.sendEmail(
                 'nguyenhuuan1304@gmail.com',
                 foundCustomer.email,
-                'Thông báo giao dịch'
-              ).then(() => {
-                // Cập nhật is_send_email
-                this.transactionRepository.update(transaction.id, {
-                  is_send_email: true,
-                });
-              })
+                'Thông báo danh sách giao dịch cần bổ sung chứng từ',
+                availableTransactions,
+              )
+                .then(() => {
+                  // Cập nhật is_send_email
+                  this.transactionRepository.update(transaction.id, {
+                    is_send_email: true,
+                  });
+                })
                 .catch((error) => {
-                  console.error("Error sending email:", error);
+                  console.error('Error sending email:', error);
                 });
             });
           } else {
             this.sendEmail(
               'nguyenhuuan1304@gmail.com',
               foundCustomer.email,
-              'Thông báo giao dịch'
-            ).then(() => {
-              // Cập nhật is_send_email
-              this.transactionRepository.update(transaction.id, {
-                is_send_email: true,
+              'Thông báo danh sách giao dịch cần bổ sung chứng từ',
+              availableTransactions,
+            )
+              .then(() => {
+                // Cập nhật is_send_email
+                this.transactionRepository.update(transaction.id, {
+                  is_send_email: true,
+                });
+              })
+              .catch((error) => {
+                console.error('Error sending email:', error);
               });
-            })
-            .catch((error) => {
-              console.error("Error sending email:", error);
-            });
           }
         }
       }
@@ -208,31 +226,90 @@ export class CustomerService {
     return { customers, total, page, lastPage: Math.ceil(total / pageSize) };
   }
 
+  generateTransactionTableHtml(transactions: CustomerData[]): string {
+    const rows = transactions
+      .map(
+        (tx) => `
+    <tr>
+      <td style="padding: 8px;">${tx.trref}</td>
+      <td style="padding: 8px;">${tx.custno}</td>
+      <td style="padding: 8px;">${tx.custnm}</td>
+      <td style="padding: 8px;">${tx.tradate}</td>
+      <td style="padding: 8px;">${tx.currency}</td>
+      <td style="padding: 8px;">${tx.amount}</td>
+      <td style="padding: 8px;">${tx.bencust}</td>
+      <td style="padding: 8px;">${tx.contract}</td>
+      <td style="padding: 8px;">${tx.expected_declaration_date}</td>
+    </tr>
+  `,
+      )
+      .join('');
+
+    return `
+    <div style="font-family: Arial, sans-serif; font-size: 14px;">
+      <p>Kính gửi Quý khách,</p>
+      <p>Dưới đây là danh sách giao dịch cần bổ sung chứng từ:</p>
+      <table cellpadding="0" cellspacing="0" border="1" style="border-collapse: collapse; width: 100%;">
+        <thead style="background-color: #f0f0f0;">
+          <tr>
+            <th style="padding: 8px;">Số giao dịch</th>
+            <th style="padding: 8px;">Mã khách hàng</th>
+            <th style="padding: 8px;">Tên khách hàng</th>
+            <th style="padding: 8px;">Ngày giao dịch</th>
+            <th style="padding: 8px;">Loại tiền</th>
+            <th style="padding: 8px;">Số tiền</th>
+            <th style="padding: 8px;">Người hưởng thụ</th>
+            <th style="padding: 8px;">Số hợp đồng ngoại thương</th>
+            <th style="padding: 8px;">Ngày nhận hàng dự kiến</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+      <div style="margin-top: 20px; color: #76438b;">
+        <span style="font-weight: bold; font-style: italic; display: block;">Regards,</span>
+        <span style="display: block; margin-top: 4px;">.......................................</span>
+        <span style="font-weight: bold; display: block; margin-top: 4px;">Nguyen Thi Thuy Tuyen (Ms.)/</span>
+        <span style="display: block; margin-top: 4px;">Deputy manager - Corporate Banking Division</span>
+        <span style="display: block; margin-top: 4px;">Agribank Branch 4</span>
+        <span style="display: block; margin-top: 4px;">No. 196 Hoang Dieu st, Ward 8, District 4, Ho Chi Minh city, Vietnam</span>
+        <span style="display: block; margin-top: 4px;">Tel: +84 28 3940 8479 (EXT: 414) Fax: +84 28 3940 8478</span>
+        <span style="display: block; margin-top: 4px;">Mobile: +84 963047873</span>
+        <span style="display: block; margin-top: 4px;">Email: tiennguyenthithuy6@agribank.com.vn</span>
+        <span style="display: block; margin-top: 4px;">https://agribank.com.vn</span>
+      </div>
+    </div>
+  `;
+  }
+
   // Hàm gửi email
-  async sendEmail(from: string, to: string, subject: string) {
-    console.log(`Sending email from ${from} to ${to} with subject: ${subject}`);
-    const html = fs.readFileSync('src/modules/customers/buildHtml.html', 'utf8');
+  async sendEmail(
+    from: string,
+    to: string,
+    subject: string,
+    data: any[] = [],
+  ): Promise<void> {
+    const htmlBody = this.generateTransactionTableHtml(data as CustomerData[]);
 
     let transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
+      host: 'smtp.gmail.com',
       port: 587,
       secure: false,
       auth: {
-        user: "nguyenhuuan1304@gmail.com",
-        pass: "bameltmcljiaoqan",
+        user: 'nguyenhuuan1304@gmail.com',
+        pass: 'bameltmcljiaoqan',
       },
       tls: {
         rejectUnauthorized: false,
       },
     });
 
-    let info = await transporter.sendMail({
+    await transporter.sendMail({
       from: from,
       to: to,
       subject: subject,
-      html: html, // hoặc html: "<h3>Xin chào, đây là email thông báo!</h3>"
+      html: htmlBody,
     });
-
-    console.log("Email sent: %s", info.messageId);
   }
 }
