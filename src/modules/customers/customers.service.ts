@@ -93,15 +93,19 @@ export class CustomerService {
   async findCustomersWithTransactions(
     page: number = 1,
     pageSize: number = 10,
+    isSendEmail: boolean = false,
   ): Promise<{ customers: CustomerWithTransactions[]; total: number }> {
     const queryBuilder = this.customerRepository
       .createQueryBuilder('customer')
-      .leftJoinAndSelect(
-        'transaction',
-        'transaction',
-        'transaction.custno = customer.custno AND transaction.is_send_email = :isSendEmail',
-        { isSendEmail: false },
-      )
+      .where((qb) => {
+        const subQuery = qb.subQuery()
+          .select('1')
+          .from('transaction', 'transaction')
+          .where('transaction.custno = customer.custno')
+          .andWhere(`transaction.is_send_email = ${!isSendEmail}`)
+          .getQuery();
+        return `NOT EXISTS ${subQuery}`;
+      })
       .take(pageSize)
       .skip((page - 1) * pageSize);
 
@@ -159,9 +163,12 @@ export class CustomerService {
       );
     }
 
+    const customerAvailableTransactions = customers.filter(
+      (customer) => customer.transactions.length > 0,
+    );
     for (const transaction of availableTransactions) {
       if (!transaction.is_send_email && !transaction.is_sending_email) {
-        const foundCustomer = customers.find(
+        const foundCustomer = customerAvailableTransactions.find(
           (cust) => cust.custno === transaction.custno,
         );
         if (foundCustomer) {
@@ -190,7 +197,7 @@ export class CustomerService {
                 'nguyenhuuan1304@gmail.com',
                 foundCustomer.email,
                 'Thông báo danh sách giao dịch cần bổ sung chứng từ',
-                availableTransactions,
+                transaction,
               )
                 .then(() => {
                   // Cập nhật is_send_email
@@ -207,7 +214,7 @@ export class CustomerService {
               'nguyenhuuan1304@gmail.com',
               foundCustomer.email,
               'Thông báo danh sách giao dịch cần bổ sung chứng từ',
-              availableTransactions,
+              transaction,
             )
               .then(() => {
                 // Cập nhật is_send_email
@@ -223,27 +230,28 @@ export class CustomerService {
       }
     }
 
-    return { customers, total, page, lastPage: Math.ceil(total / pageSize) };
+    return {
+      customers: customerAvailableTransactions,
+      total,
+      page,
+      lastPage: Math.ceil(total / pageSize),
+    };
   }
 
-  generateTransactionTableHtml(transactions: CustomerData[]): string {
-    const rows = transactions
-      .map(
-        (tx) => `
+  generateTransactionTableHtml(transaction: CustomerData): string {
+    const row = `
     <tr>
-      <td style="padding: 8px;">${tx.trref}</td>
-      <td style="padding: 8px;">${tx.custno}</td>
-      <td style="padding: 8px;">${tx.custnm}</td>
-      <td style="padding: 8px;">${tx.tradate}</td>
-      <td style="padding: 8px;">${tx.currency}</td>
-      <td style="padding: 8px;">${tx.amount}</td>
-      <td style="padding: 8px;">${tx.bencust}</td>
-      <td style="padding: 8px;">${tx.contract}</td>
-      <td style="padding: 8px;">${tx.expected_declaration_date}</td>
+      <td style="padding: 8px;">${transaction.trref}</td>
+      <td style="padding: 8px;">${transaction.custno}</td>
+      <td style="padding: 8px;">${transaction.custnm}</td>
+      <td style="padding: 8px;">${transaction.tradate}</td>
+      <td style="padding: 8px;">${transaction.currency}</td>
+      <td style="padding: 8px;">${transaction.amount}</td>
+      <td style="padding: 8px;">${transaction.bencust}</td>
+      <td style="padding: 8px;">${transaction.contract}</td>
+      <td style="padding: 8px;">${transaction.expected_declaration_date}</td>
     </tr>
-  `,
-      )
-      .join('');
+  `;
 
     return `
     <div style="font-family: Arial, sans-serif; font-size: 14px;">
@@ -264,7 +272,7 @@ export class CustomerService {
           </tr>
         </thead>
         <tbody>
-          ${rows}
+          ${row}
         </tbody>
       </table>
       <div style="margin-top: 20px; color: #76438b;">
@@ -288,9 +296,9 @@ export class CustomerService {
     from: string,
     to: string,
     subject: string,
-    data: any[] = [],
+    data: any = {},
   ): Promise<void> {
-    const htmlBody = this.generateTransactionTableHtml(data as CustomerData[]);
+    const htmlBody = this.generateTransactionTableHtml(data as CustomerData);
 
     let transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
