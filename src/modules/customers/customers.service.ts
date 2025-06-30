@@ -98,7 +98,8 @@ export class CustomerService {
     const queryBuilder = this.customerRepository
       .createQueryBuilder('customer')
       .where((qb) => {
-        const subQuery = qb.subQuery()
+        const subQuery = qb
+          .subQuery()
           .select('1')
           .from('transaction', 'transaction')
           .where('transaction.custno = customer.custno')
@@ -196,7 +197,7 @@ export class CustomerService {
               this.sendEmail(
                 'nguyenhuuan1304@gmail.com',
                 foundCustomer.email,
-                'Thông báo danh sách giao dịch cần bổ sung chứng từ',
+                '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
                 transaction,
               )
                 .then(() => {
@@ -213,7 +214,7 @@ export class CustomerService {
             this.sendEmail(
               'nguyenhuuan1304@gmail.com',
               foundCustomer.email,
-              'Thông báo danh sách giao dịch cần bổ sung chứng từ',
+              '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
               transaction,
             )
               .then(() => {
@@ -244,18 +245,36 @@ export class CustomerService {
       <td style="padding: 8px;">${transaction.trref}</td>
       <td style="padding: 8px;">${transaction.custno}</td>
       <td style="padding: 8px;">${transaction.custnm}</td>
-      <td style="padding: 8px;">${transaction.tradate}</td>
+      <td style="padding: 8px;">
+        ${
+          transaction.tradate
+            ? dayjs(transaction.tradate).format('DD/MM/YYYY')
+            : ''
+        }
+      </td>
       <td style="padding: 8px;">${transaction.currency}</td>
       <td style="padding: 8px;">${transaction.amount}</td>
       <td style="padding: 8px;">${transaction.bencust}</td>
       <td style="padding: 8px;">${transaction.contract}</td>
-      <td style="padding: 8px;">${transaction.expected_declaration_date}</td>
+      <td style="padding: 8px;">
+        ${
+          transaction.expected_declaration_date
+            ? dayjs(transaction.expected_declaration_date).format('DD/MM/YYYY')
+            : ''
+        }
+      </td>
+      <td style="padding: 8px;">
+        ${dayjs(transaction.expected_declaration_date).add(30, 'day').format('DD/MM/YYYY')}
+      </td>
     </tr>
   `;
 
     return `
     <div style="font-family: Arial, sans-serif; font-size: 14px;">
-      <p>Kính gửi Quý khách,</p>
+      <p>
+        Kính gửi Quý khách:
+        <span style="font-weight: 700;">${transaction.custnm}</span>,
+      </p>
       <p>Dưới đây là danh sách giao dịch cần bổ sung chứng từ:</p>
       <table cellpadding="0" cellspacing="0" border="1" style="border-collapse: collapse; width: 100%;">
         <thead style="background-color: #f0f0f0;">
@@ -269,6 +288,7 @@ export class CustomerService {
             <th style="padding: 8px;">Người hưởng thụ</th>
             <th style="padding: 8px;">Số hợp đồng ngoại thương</th>
             <th style="padding: 8px;">Ngày nhận hàng dự kiến</th>
+            <th style="padding: 8px;">Ngày giao hàng dự kiến</th>
           </tr>
         </thead>
         <tbody>
