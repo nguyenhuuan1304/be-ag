@@ -55,7 +55,7 @@ export class AuthService {
 
     const payload = { sub: user.id, email: user.email, role: user.role };
     const access_token = await this.jwtService.signAsync(payload, {
-      expiresIn: '15m',
+      expiresIn: '2d',
     });
     const refresh_token = randomBytes(32).toString('hex');
 
@@ -95,7 +95,7 @@ export class AuthService {
     };
 
     const access_token = await this.jwtService.signAsync(payload, {
-      expiresIn: '15m',
+      expiresIn: '2d',
     });
 
     const new_refresh_token = randomBytes(32).toString('hex');
