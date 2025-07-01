@@ -31,7 +31,7 @@ export class AuthService {
       email: dto.email,
       fullName: `${dto.firstName} ${dto.lastName}`,
       passwordHash,
-      role: 'GDV_TTQT',
+      role: dto.role,
       refreshToken: null,
     });
 

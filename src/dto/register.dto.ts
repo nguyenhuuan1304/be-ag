@@ -12,4 +12,7 @@ export class RegisterDto {
 
   @MinLength(6)
   password: string;
+
+  @IsNotEmpty()
+  role: string;
 }
