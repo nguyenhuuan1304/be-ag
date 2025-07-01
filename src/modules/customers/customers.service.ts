@@ -288,7 +288,7 @@ export class CustomerService {
             <th style="padding: 8px;">Người hưởng thụ</th>
             <th style="padding: 8px;">Số hợp đồng ngoại thương</th>
             <th style="padding: 8px;">Ngày nhận hàng dự kiến</th>
-            <th style="padding: 8px;">Ngày giao hàng dự kiến</th>
+            <th style="padding: 8px;">Ngày bổ sung chứng từ dự kiến</th>
           </tr>
         </thead>
         <tbody>
@@ -296,16 +296,16 @@ export class CustomerService {
         </tbody>
       </table>
       <div style="margin-top: 20px; color: #76438b;">
-        <span style="font-weight: bold; font-style: italic; display: block;">Regards,</span>
-        <span style="display: block; margin-top: 4px;">.......................................</span>
-        <span style="font-weight: bold; display: block; margin-top: 4px;">Nguyen Thi Thuy Tuyen (Ms.)/</span>
-        <span style="display: block; margin-top: 4px;">Deputy manager - Corporate Banking Division</span>
-        <span style="display: block; margin-top: 4px;">Agribank Branch 4</span>
-        <span style="display: block; margin-top: 4px;">No. 196 Hoang Dieu st, Ward 8, District 4, Ho Chi Minh city, Vietnam</span>
-        <span style="display: block; margin-top: 4px;">Tel: +84 28 3940 8479 (EXT: 414) Fax: +84 28 3940 8478</span>
-        <span style="display: block; margin-top: 4px;">Mobile: +84 963047873</span>
-        <span style="display: block; margin-top: 4px;">Email: tiennguyenthithuy6@agribank.com.vn</span>
-        <span style="display: block; margin-top: 4px;">https://agribank.com.vn</span>
+        <div style="font-weight: bold; font-style: italic;">Regards,</div>
+        <div style="margin-top: 4px;">.......................................</div>
+        <div style="font-weight: bold; margin-top: 4px;">Nguyen Thi Thuy Tien (Ms.)/</div>
+        <div style="margin-top: 4px;">Deputy manager - Corporate Banking Division</div>
+        <div style="margin-top: 4px;">Agribank Branch 4</div>
+        <div style="margin-top: 4px;">No. 196 Hoang Dieu st, Ward 8, District 4, Ho Chi Minh city, Vietnam</div>
+        <div style="margin-top: 4px;">Tel: +84 28 3940 8479 (EXT: 414) Fax: +84 28 3940 8478</div>
+        <div style="margin-top: 4px;">Mobile: +84 963047873</div>
+        <div style="margin-top: 4px;">Email: tiennguyenthithuy6@agribank.com.vn</div>
+        <div style="margin-top: 4px;">https://agribank.com.vn</div>
       </div>
     </div>
   `;
@@ -336,6 +336,7 @@ export class CustomerService {
     await transporter.sendMail({
       from: from,
       to: to,
+      // cc: 'abc@gmail.com',
       subject: subject,
       html: htmlBody,
     });
