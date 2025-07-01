@@ -94,6 +94,7 @@ export class CustomerService {
     page: number = 1,
     pageSize: number = 10,
     isSendEmail: boolean = false,
+    search: string = '',
   ): Promise<{ customers: CustomerWithTransactions[]; total: number }> {
     const queryBuilder = this.customerRepository
       .createQueryBuilder('customer')
@@ -110,6 +111,12 @@ export class CustomerService {
       .take(pageSize)
       .skip((page - 1) * pageSize);
 
+    if (search) {
+      queryBuilder.andWhere('customer.email LIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
     const [customers, total] = await queryBuilder.getManyAndCount();
 
     return { customers, total };
@@ -118,6 +125,7 @@ export class CustomerService {
   async findDuplicateCustomers(
     page: number = 1,
     pageSize: number = 10,
+    search: string = '',
   ): Promise<{
     customers: CustomerWithTransactions[];
     total: number;
@@ -154,6 +162,12 @@ export class CustomerService {
       )
       .take(pageSize)
       .skip((page - 1) * pageSize);
+
+    if (search) {
+      queryBuilder.andWhere('customer.email LIKE :search', {
+        search: `%${search}%`,
+      });
+    }
 
     const [customers, total] = await queryBuilder.getManyAndCount();
 
