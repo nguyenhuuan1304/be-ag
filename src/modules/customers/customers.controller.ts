@@ -31,10 +31,12 @@ export class CustomerController {
   async getDuplicateCustomers(
     @Query('page') page: string = '1',
     @Query('pageSize') pageSize: string = '10',
+    @Query('search') search: string = '',
   ): Promise<{ customers: CustomerWithTransactions[]; total: number }> {
     return this.customerService.findDuplicateCustomers(
       parseInt(page, 10),
       parseInt(pageSize, 10),
+      search,
     );
   }
 
@@ -43,11 +45,13 @@ export class CustomerController {
     @Query('page') page: string = '1',
     @Query('pageSize') pageSize: string = '10',
     @Query('isSendEmail') isSendEmail: boolean = false,
+    @Query('search') search: string = '',
   ): Promise<{ customers: CustomerWithTransactions[]; total: number }> {
     return this.customerService.findCustomersWithTransactions(
       parseInt(page, 10),
       parseInt(pageSize, 10),
       isSendEmail,
+      search,
     );
   }
 }
