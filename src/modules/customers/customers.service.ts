@@ -22,6 +22,8 @@ export type CustomerData = {
   bencust: string;
   contract: string;
   expected_declaration_date: string;
+  additional_date: string;
+  document: string;
 };
 
 @Injectable()
@@ -149,6 +151,8 @@ export class CustomerService {
         'expected_declaration_date',
         'remark',
         'contract',
+        'additional_date',
+        'document',
       ],
     });
 
@@ -270,6 +274,7 @@ export class CustomerService {
       <td style="padding: 8px;">${transaction.amount}</td>
       <td style="padding: 8px;">${transaction.bencust}</td>
       <td style="padding: 8px;">${transaction.contract}</td>
+      <td style="padding: 8px;">${transaction.document}</td>
       <td style="padding: 8px;">
         ${
           transaction.expected_declaration_date
@@ -278,7 +283,7 @@ export class CustomerService {
         }
       </td>
       <td style="padding: 8px;">
-        ${dayjs(transaction.expected_declaration_date).add(30, 'day').format('DD/MM/YYYY')}
+        ${dayjs(transaction.additional_date).format('DD/MM/YYYY')}
       </td>
     </tr>
   `;
@@ -301,6 +306,7 @@ export class CustomerService {
             <th style="padding: 8px;">Số tiền</th>
             <th style="padding: 8px;">Người hưởng thụ</th>
             <th style="padding: 8px;">Số hợp đồng ngoại thương</th>
+            <th style="padding: 8px;">Chứng từ cần bổ sung</th>
             <th style="padding: 8px;">Ngày nhận hàng dự kiến</th>
             <th style="padding: 8px;">Ngày bổ sung chứng từ dự kiến</th>
           </tr>

@@ -379,7 +379,7 @@ export class TransactionsService {
       ngay_giao_dich: t.tradate ? format(t.tradate, 'dd/MM/yyyy') : '',
       remark: t.remark,
       chung_tu_can_bo_sung: t.document,
-      hau_duyet: t.post_inspection ? 'Đã hậu kiểm' : 'Chưa hậu kiểm',
+      hau_kiem: t.post_inspection ? 'Đã hậu kiểm' : 'Chưa hậu kiểm',
       ngay_nhan_hang_du_kien: t.expected_declaration_date
         ? format(t.expected_declaration_date, 'dd/MM/yyyy')
         : '',

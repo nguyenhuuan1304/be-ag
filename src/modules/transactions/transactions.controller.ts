@@ -184,7 +184,7 @@ export class TransactionsController {
 
   @Put('ksv/:id')
   @UseGuards(RolesGuard)
-  @Roles(Role.KSV_TTQT)
+  @Roles(Role.KSV_TTQT, Role.ADMIN)
   async updateCensored(
     @Param('id') id: string,
     @Body()
@@ -196,7 +196,7 @@ export class TransactionsController {
 
   @Put('hk/:id')
   @UseGuards(RolesGuard)
-  @Roles(Role.GDV_HK)
+  @Roles(Role.GDV_HK, Role.ADMIN)
   async updateHK(
     @Param('id') id: string,
     @Body()
