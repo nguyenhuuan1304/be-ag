@@ -195,7 +195,7 @@ export class TransactionsService {
       where,
       skip: (page - 1) * limit,
       take: limit,
-      order: { updated_at: 'DESC' },
+      order: { updated_at: 'ASC' },
     });
 
     return {
@@ -256,7 +256,7 @@ export class TransactionsService {
       where: conditions,
       skip: (page - 1) * limit,
       take: limit,
-      order: { updated_at: 'DESC' },
+      order: { updated_at: 'ASC' },
     });
 
     return {
@@ -277,7 +277,7 @@ export class TransactionsService {
       where,
       skip: (page - 1) * limit,
       take: limit,
-      order: { created_at: 'DESC' },
+      order: { updated_at: 'ASC' },
     });
 
     return {
@@ -301,6 +301,7 @@ export class TransactionsService {
               expected_declaration_date: MoreThanOrEqual(new Date()),
             },
       relations: ['customer'],
+      order: { updated_at: 'ASC' },
     });
 
     const data = transactions.map((t) => ({
@@ -337,6 +338,7 @@ export class TransactionsService {
         status: 'Đã bổ sung',
       },
       relations: ['customer'],
+      order: { updated_at: 'ASC' },
     });
 
     const data = transactions.map((t) => ({
@@ -355,7 +357,7 @@ export class TransactionsService {
       ngay_bo_sung_chung_tu_du_kien: t.additional_date
         ? format(t.additional_date, 'dd/MM/yyyy')
         : '',
-      ghi_chu: t.note || '',
+      ghi_chu: t.note_inspection || '',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
