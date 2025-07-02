@@ -20,6 +20,9 @@ import { TransactionsService } from './transactions.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { Response } from 'express';
 import { GetUser } from 'src/auth/get-user.decorator';
+import { Role } from 'src/enum/role.enum';
+import { RolesGuard } from 'src/role/roles.guard';
+import { Roles } from 'src/role/roles.decorator';
 
 @UseGuards(JwtAuthGuard)
 @Controller('transactions')
@@ -137,5 +140,33 @@ export class TransactionsController {
     @GetUser() user: { id: number; fullName: string },
   ) {
     return this.transactionService.updateCustomer(+id, updateData, user);
+  }
+
+  @Put('ksv/:id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.KSV_TTQT)
+  async updateCensored(
+    @Param('id') id: string,
+    @Body()
+    updateData: { status?: string; note_censored?: string; censored?: boolean },
+    @GetUser() user: { id: number; fullName: string; role: string },
+  ) {
+    return this.transactionService.updateCustomerForKSV(+id, updateData, user);
+  }
+
+  @Put('hk/:id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.GDV_HK)
+  async updateHK(
+    @Param('id') id: string,
+    @Body()
+    updateData: {
+      status?: string;
+      note_inspection?: string;
+      post_inspection?: boolean;
+    },
+    @GetUser() user: { id: number; fullName: string; role: string },
+  ) {
+    return this.transactionService.updateCustomerForHK(+id, updateData, user);
   }
 }

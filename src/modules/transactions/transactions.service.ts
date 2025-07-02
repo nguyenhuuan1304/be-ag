@@ -354,4 +354,74 @@ export class TransactionsService {
 
     return updatedTransaction;
   }
+
+  async updateCustomerForKSV(
+    id: number,
+    updateData: { status?: string; note_censored?: string; censored?: boolean },
+    user: { id: number; fullName: string; role: string },
+  ) {
+    const transaction = await this.transactionsRepository.findOne({
+      where: { id },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException(`Transaction with ID ${id} not found`);
+    }
+
+    const updatedTransaction = {
+      ...transaction,
+      status: updateData.status || transaction.status,
+      note_censored:
+        updateData.note_censored !== undefined
+          ? updateData.note_censored
+          : transaction.note_censored,
+      censored:
+        updateData.censored !== undefined
+          ? updateData.censored
+          : transaction.censored,
+      updated_by: user.fullName,
+      updated_at: new Date(),
+    };
+
+    await this.transactionsRepository.save(updatedTransaction);
+
+    return updatedTransaction;
+  }
+
+  async updateCustomerForHK(
+    id: number,
+    updateData: {
+      status?: string;
+      note_inspection?: string;
+      post_inspection?: boolean;
+    },
+    user: { id: number; fullName: string; role: string },
+  ) {
+    const transaction = await this.transactionsRepository.findOne({
+      where: { id },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException(`Transaction with ID ${id} not found`);
+    }
+
+    const updatedTransaction = {
+      ...transaction,
+      status: updateData.status || transaction.status,
+      note_inspection:
+        updateData.note_inspection !== undefined
+          ? updateData.note_inspection
+          : transaction.note_inspection,
+      post_inspection:
+        updateData.post_inspection !== undefined
+          ? updateData.post_inspection
+          : transaction.post_inspection,
+      updated_by: user.fullName,
+      updated_at: new Date(),
+    };
+
+    await this.transactionsRepository.save(updatedTransaction);
+
+    return updatedTransaction;
+  }
 }

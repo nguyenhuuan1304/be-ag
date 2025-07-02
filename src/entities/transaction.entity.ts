@@ -67,6 +67,12 @@ export class Transaction {
   note: string;
 
   @Column({ nullable: true })
+  note_censored: string;
+
+  @Column({ nullable: true })
+  note_inspection: string;
+
+  @Column({ nullable: true })
   updated_by: string;
 
   @Column({ type: 'timestamp', nullable: true })
