@@ -107,6 +107,21 @@ export class TransactionsController {
     );
   }
 
+  @Get('hk/status')
+  async findByStatusHK(
+    @Query('page') page: string,
+    @Query('limit') limit: string,
+    @Query('search') search: string,
+  ) {
+    const pageNumber = parseInt(page) || 1;
+    const limitNumber = parseInt(limit) || 10;
+    return this.transactionService.findByStatusHK(
+      pageNumber,
+      limitNumber,
+      search,
+    );
+  }
+
   @Get('report/:status')
   async exportReport(
     @Param('status') status: 'Chưa bổ sung' | 'Quá hạn',

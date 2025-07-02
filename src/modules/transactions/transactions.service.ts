@@ -267,6 +267,35 @@ export class TransactionsService {
     };
   }
 
+  // Hậu Kiểm với điều kiện tìm kiếm theo trạng thái
+  async findByStatusHK(page: number, limit: number, search?: string) {
+    const condition: any = [];
+
+    condition.push({
+      status: 'Đã bổ sung',
+      censored: true,
+    });
+    if (search) {
+      condition.custnm = Raw((alias) => `LOWER(${alias}) LIKE :search`, {
+        search: `%${search.toLowerCase()}%`,
+      });
+    }
+
+    const [results, total] = await this.transactionsRepository.findAndCount({
+      where: condition,
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { updated_at: 'DESC' },
+    });
+
+    return {
+      data: results,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit),
+    };
+  }
+
   async findEmailSent(page: number, limit: number, search?: string) {
     const where: any = { is_send_email: true };
     if (search) {
