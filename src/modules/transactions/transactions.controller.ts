@@ -148,6 +148,31 @@ export class TransactionsController {
     res.send(buffer);
   }
 
+  @Get('export/post-inspection')
+  async exportReportPostInspection(
+    @Query('postInspection') postInspection: boolean,
+    @Res() res: Response,
+  ) {
+    const buffer =
+      await this.transactionService.exportPostInspectionToExcel(postInspection);
+
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('vi-VN').replaceAll('/', '-');
+
+    const postInspectionText = postInspection ? 'Đã hậu kiểm' : 'Chưa hậu kiểm';
+
+    const filename = `report-${postInspectionText}-${formattedDate}.xlsx`;
+    const encodedFilename = encodeURIComponent(filename);
+
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
+    });
+
+    res.send(buffer);
+  }
+
   @Put(':id')
   async update(
     @Param('id') id: string,

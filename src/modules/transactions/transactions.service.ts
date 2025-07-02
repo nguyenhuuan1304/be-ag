@@ -195,7 +195,7 @@ export class TransactionsService {
       where,
       skip: (page - 1) * limit,
       take: limit,
-      order: { updated_at: 'DESC' },
+      order: { updated_at: 'ASC' },
     });
 
     return {
@@ -256,7 +256,7 @@ export class TransactionsService {
       where: conditions,
       skip: (page - 1) * limit,
       take: limit,
-      order: { updated_at: 'DESC' },
+      order: { updated_at: 'ASC' },
     });
 
     return {
@@ -306,7 +306,7 @@ export class TransactionsService {
       where,
       skip: (page - 1) * limit,
       take: limit,
-      order: { created_at: 'DESC' },
+      order: { updated_at: 'ASC' },
     });
 
     return {
@@ -330,6 +330,7 @@ export class TransactionsService {
               expected_declaration_date: MoreThanOrEqual(new Date()),
             },
       relations: ['customer'],
+      order: { updated_at: 'ASC' },
     });
 
     const data = transactions.map((t) => ({
@@ -349,6 +350,43 @@ export class TransactionsService {
       ghi_chu: t.note || '',
       // ContactPerson: t.customer?.contact_person || '',
       // PhoneNumber: t.customer?.phone_number || '',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
+
+    return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  }
+
+  async exportPostInspectionToExcel(postInspection: boolean): Promise<Buffer> {
+    const transactions = await this.transactionsRepository.find({
+      where: {
+        post_inspection: postInspection,
+        censored: true,
+        status: 'Đã bổ sung',
+      },
+      relations: ['customer'],
+      order: { updated_at: 'ASC' },
+    });
+
+    const data = transactions.map((t) => ({
+      so_giao_dich: t.trref,
+      ma_khach_hang: t.custno,
+      ten_khach_hang: t.custnm,
+      so_tien: t.amount,
+      loai_tien: t.currency,
+      ngay_giao_dich: t.tradate ? format(t.tradate, 'dd/MM/yyyy') : '',
+      remark: t.remark,
+      chung_tu_can_bo_sung: t.document,
+      hau_duyet: t.post_inspection ? 'Đã hậu kiểm' : 'Chưa hậu kiểm',
+      ngay_nhan_hang_du_kien: t.expected_declaration_date
+        ? format(t.expected_declaration_date, 'dd/MM/yyyy')
+        : '',
+      ngay_bo_sung_chung_tu_du_kien: t.additional_date
+        ? format(t.additional_date, 'dd/MM/yyyy')
+        : '',
+      ghi_chu: t.note_inspection || '',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(data);
