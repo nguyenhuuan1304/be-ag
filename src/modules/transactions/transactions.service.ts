@@ -30,7 +30,8 @@ export class TransactionsService {
           !row.Custnm ||
           !row.Currency ||
           !row.Amount ||
-          !row.bencust
+          !row.bencust ||
+          !row.document
         ) {
           errors.push(`Row ${index + 2}: Missing required fields`);
           continue;
@@ -52,6 +53,7 @@ export class TransactionsService {
 
         let tradate: Date | null = null;
         let esdate: Date | null = null;
+        let additionalDate: Date | null = null;
 
         // Handle Tradate
         if (row.Tradate) {
@@ -111,6 +113,9 @@ export class TransactionsService {
               esdate.getMonth(),
               esdate.getDate(),
             );
+            // Calculate additional_date (esdate + 30 days)
+            additionalDate = new Date(esdate);
+            additionalDate.setDate(esdate.getDate() + 30);
           } catch {
             errors.push(
               `Row ${index + 2}: Invalid Esdate format (${row.Esdate})`,
@@ -152,7 +157,11 @@ export class TransactionsService {
           contract_number,
           contract,
           expected_declaration_date: esdate,
+          additional_date: additionalDate,
           status: 'Chưa bổ sung',
+          censored: false,
+          post_inspection: false,
+          document: row.document,
           is_document_added: false,
           is_send_email: false,
           is_sending_email: false,
@@ -186,7 +195,7 @@ export class TransactionsService {
       where,
       skip: (page - 1) * limit,
       take: limit,
-      order: { created_at: 'DESC' },
+      order: { updated_at: 'DESC' },
     });
 
     return {
@@ -247,7 +256,7 @@ export class TransactionsService {
       where: conditions,
       skip: (page - 1) * limit,
       take: limit,
-      order: { created_at: 'DESC' },
+      order: { updated_at: 'DESC' },
     });
 
     return {

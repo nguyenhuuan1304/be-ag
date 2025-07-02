@@ -39,8 +39,20 @@ export class Transaction {
   @Column({ type: 'date', nullable: true })
   expected_declaration_date: Date | null;
 
+  @Column({ type: 'date', nullable: true })
+  additional_date: Date | null;
+
   @Column()
   status: string;
+
+  @Column({ default: false })
+  censored: boolean;
+
+  @Column({ default: false })
+  post_inspection: boolean;
+
+  @Column()
+  document: string;
 
   @Column({ default: false })
   is_document_added: boolean;

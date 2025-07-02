@@ -39,7 +39,7 @@ export class TransactionsController {
       fileFilter: (req, file, callback) => {
         if (!file.originalname.match(/\.(xlsx|xls)$/)) {
           return callback(
-            new BadRequestException('Only Excel files are allowed'),
+            new BadRequestException('Chỉ cho phép các tập tin Excel'),
             false,
           );
         }
