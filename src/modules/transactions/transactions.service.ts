@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, LessThan, MoreThanOrEqual, Raw } from 'typeorm';
 import { Transaction } from '../../entities/transaction.entity';
 import * as XLSX from 'xlsx';
-import { format, parse } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
 
 @Injectable()
 export class TransactionsService {
@@ -19,11 +19,11 @@ export class TransactionsService {
   async importFromExcel(rawData: any[]): Promise<number> {
     const transactions: Partial<Transaction>[] = [];
     const errors: string[] = [];
-    const trrefSet: Set<string> = new Set(); // To track Trref values in the current batch
+    const trrefSet: Set<string> = new Set();
 
     for (const [index, row] of rawData.entries()) {
       try {
-        // Check for missing required fields
+        // Required field check
         if (
           !row.Trref ||
           !row.Custno ||
@@ -37,94 +37,45 @@ export class TransactionsService {
           continue;
         }
 
-        // Skip duplicate Trref in the current batch
+        // Skip duplicate Trref in batch
         if (trrefSet.has(row.Trref)) {
-          continue; // Silently skip duplicate Trref
+          continue;
         }
         trrefSet.add(row.Trref);
 
-        // Optional: Skip if Trref already exists in the database
+        // Check existing in DB
         const existingTransaction = await this.transactionsRepository.findOne({
           where: { trref: row.Trref },
         });
         if (existingTransaction) {
-          continue; // Silently skip if Trref exists in the database
+          continue;
         }
 
-        let tradate: Date | null = null;
-        let esdate: Date | null = null;
+        // Parse dates
+        const tradate = this.parseDateFromExcel(row.Tradate);
+        if (row.Tradate && !tradate) {
+          errors.push(
+            `Row ${index + 2}: Invalid Tradate format (${row.Tradate})`,
+          );
+          continue;
+        }
+
+        const esdate = this.parseDateFromExcel(row.Esdate);
+        if (row.Esdate && !esdate) {
+          errors.push(
+            `Row ${index + 2}: Invalid Esdate format (${row.Esdate})`,
+          );
+          continue;
+        }
+
         let additionalDate: Date | null = null;
-
-        // Handle Tradate
-        if (row.Tradate) {
-          try {
-            if (row.Tradate instanceof Date && !isNaN(row.Tradate.getTime())) {
-              tradate = row.Tradate;
-            } else if (typeof row.Tradate === 'number') {
-              const dateObj = XLSX.SSF.parse_date_code(row.Tradate);
-              tradate = new Date(dateObj.y, dateObj.m - 1, dateObj.d);
-            } else {
-              tradate = parse(row.Tradate, 'dd/MM/yyyy', new Date());
-              if (isNaN(tradate.getTime())) {
-                tradate = new Date(row.Tradate);
-              }
-            }
-            if (!tradate || isNaN(tradate.getTime())) {
-              errors.push(
-                `Row ${index + 2}: Invalid Tradate format (${row.Tradate})`,
-              );
-              continue;
-            }
-            tradate = new Date(
-              tradate.getFullYear(),
-              tradate.getMonth(),
-              tradate.getDate(),
-            );
-          } catch {
-            errors.push(
-              `Row ${index + 2}: Invalid Tradate format (${row.Tradate})`,
-            );
-            continue;
-          }
+        if (esdate) {
+          additionalDate = new Date(esdate);
+          additionalDate.setDate(esdate.getDate() + 30);
+          additionalDate.setHours(12); // giữ giờ cố định
         }
 
-        // Handle Esdate
-        if (row.Esdate) {
-          try {
-            if (row.Esdate instanceof Date && !isNaN(row.Esdate.getTime())) {
-              esdate = row.Esdate;
-            } else if (typeof row.Esdate === 'number') {
-              const dateObj = XLSX.SSF.parse_date_code(row.Esdate);
-              esdate = new Date(dateObj.y, dateObj.m - 1, dateObj.d);
-            } else {
-              esdate = parse(row.Esdate, 'dd/MM/yyyy', new Date());
-              if (isNaN(esdate.getTime())) {
-                esdate = new Date(row.Esdate);
-              }
-            }
-            if (!esdate || isNaN(esdate.getTime())) {
-              errors.push(
-                `Row ${index + 2}: Invalid Esdate format (${row.Esdate})`,
-              );
-              continue;
-            }
-            esdate = new Date(
-              esdate.getFullYear(),
-              esdate.getMonth(),
-              esdate.getDate(),
-            );
-            // Calculate additional_date (esdate + 30 days)
-            additionalDate = new Date(esdate);
-            additionalDate.setDate(esdate.getDate() + 30);
-          } catch {
-            errors.push(
-              `Row ${index + 2}: Invalid Esdate format (${row.Esdate})`,
-            );
-            continue;
-          }
-        }
-
-        // Handle contract extraction
+        // Contract extraction
         const contractMatch = row.remark?.match(/HD\s+([^\s,]+)/i);
         const contract_number = contractMatch ? contractMatch[1] : null;
 
@@ -144,7 +95,7 @@ export class TransactionsService {
           continue;
         }
 
-        // Create transaction object
+        // Create transaction
         const transaction: Partial<Transaction> = {
           trref: row.Trref,
           custno: row.Custno,
@@ -175,17 +126,52 @@ export class TransactionsService {
       }
     }
 
-    // Throw errors only for non-duplicate-related validation issues
     if (errors.length > 0) {
       throw new BadRequestException(`Validation errors: ${errors.join('; ')}`);
     }
 
-    // Save valid transactions to the database
     if (transactions.length > 0) {
       await this.transactionsRepository.save(transactions);
     }
 
     return transactions.length;
+  }
+
+  parseDateFromExcel(rawValue: any): Date | null {
+    try {
+      // Handle Date objects
+      if (rawValue instanceof Date && !isNaN(rawValue.getTime())) {
+        return new Date(
+          rawValue.getFullYear(),
+          rawValue.getMonth(),
+          rawValue.getDate(),
+          12,
+        );
+      }
+
+      // Handle Excel serial numbers
+      if (typeof rawValue === 'number') {
+        const dateObj = XLSX.SSF.parse_date_code(rawValue);
+        return new Date(dateObj.y, dateObj.m - 1, dateObj.d, 12);
+      }
+
+      // Handle string dates with explicit dd/MM/yyyy format
+      if (typeof rawValue === 'string') {
+        const parsed = parse(rawValue, 'dd/MM/yyyy', new Date());
+        if (isValid(parsed)) {
+          return new Date(
+            parsed.getFullYear(),
+            parsed.getMonth(),
+            parsed.getDate(),
+            12,
+          );
+        }
+      }
+
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   async findAllPaginated(page: number, limit: number, search?: string) {
