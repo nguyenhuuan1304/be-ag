@@ -7,9 +7,14 @@ import { CustomerModule } from './modules/customers/customers.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { ConfigEmailModule } from './modules/configEmail/configEmail.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'frontend', 'build'), // đường dẫn đến build React
+    }),
     ConfigModule.forRoot({ isGlobal: true }), // Load .env
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -36,7 +41,7 @@ import { ConfigEmailModule } from './modules/configEmail/configEmail.module';
     TransactionsModule,
     CustomerModule,
     AuthModule,
-    ConfigEmailModule
+    ConfigEmailModule,
   ],
 })
 export class AppModule {}

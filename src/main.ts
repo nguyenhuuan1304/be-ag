@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import * as path from 'path';
+import * as express from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,11 +15,23 @@ async function bootstrap() {
     }),
   );
 
+  // Cho phép frontend gọi đến backend
   app.enableCors({
-    origin: 'http://localhost:5173', // hoặc "*" nếu muốn tạm mở toàn bộ
+    origin: true,
     credentials: true,
   });
 
-  await app.listen(process.env.PORT ?? 3000);
+  // Serve React frontend từ NestJS (nếu dùng vite, dist nằm trong frontend/dist)
+  app.use(express.static(path.join(__dirname, '..', '..', 'frontend', 'dist')));
+  app
+    .getHttpAdapter()
+    .get('*', (req: express.Request, res: express.Response) => {
+      res.sendFile(
+        path.join(__dirname, '..', '..', 'frontend', 'dist', 'index.html'),
+      );
+    });
+
+  // Lắng nghe mọi địa chỉ IP (cho phép truy cập từ máy khác)
+  await app.listen(3000, '0.0.0.0');
 }
 bootstrap();
