@@ -7,6 +7,7 @@ import * as xlsx from 'xlsx';
 import * as nodemailer from 'nodemailer';
 import * as cron from 'node-cron';
 import * as dayjs from 'dayjs';
+import { ConfigEmail } from 'src/entities/configEmail.entity';
 
 interface CustomerWithTransactions extends Customer {
   transactions: Transaction[];
@@ -33,6 +34,8 @@ export class CustomerService {
     private customerRepository: Repository<Customer>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
+    @InjectRepository(ConfigEmail)
+    private configEmailRepository: Repository<ConfigEmail>,
   ) {}
 
   async processExcel(file: Express.Multer.File): Promise<void> {
@@ -185,6 +188,16 @@ export class CustomerService {
     const customerAvailableTransactions = customers.filter(
       (customer) => customer.transactions.length > 0,
     );
+
+    const configEmail = await this.configEmailRepository.find();
+    if (!configEmail || !configEmail.length) {
+      throw new Error('Email configuration not found');
+    }
+    const configAuth = {
+      user: configEmail[0].email,
+      pass: configEmail[0].password,
+    };
+
     for (const transaction of availableTransactions) {
       if (!transaction.is_send_email && !transaction.is_sending_email) {
         const foundCustomer = customerAvailableTransactions.find(
@@ -213,7 +226,7 @@ export class CustomerService {
             );
             cron.schedule(cronTime, () => {
               this.sendEmail(
-                'nguyenhuuan1304@gmail.com',
+                configAuth,
                 foundCustomer.email,
                 '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
                 transaction,
@@ -230,7 +243,7 @@ export class CustomerService {
             });
           } else {
             this.sendEmail(
-              'nguyenhuuan1304@gmail.com',
+              configAuth,
               foundCustomer.email,
               '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
               transaction,
@@ -333,7 +346,10 @@ export class CustomerService {
 
   // Hàm gửi email
   async sendEmail(
-    from: string,
+    auth: {
+      user: string,
+      pass: string,
+    },
     to: string,
     subject: string,
     data: any = {},
@@ -344,17 +360,14 @@ export class CustomerService {
       host: 'smtp.gmail.com',
       port: 587,
       secure: false,
-      auth: {
-        user: 'nguyenhuuan1304@gmail.com',
-        pass: 'bameltmcljiaoqan',
-      },
+      auth,
       tls: {
         rejectUnauthorized: false,
       },
     });
 
     await transporter.sendMail({
-      from: from,
+      from: auth.user,
       to: to,
       // cc: 'abc@gmail.com',
       subject: subject,
