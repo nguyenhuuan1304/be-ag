@@ -23,13 +23,11 @@ async function bootstrap() {
 
   // Serve React frontend từ NestJS (nếu dùng vite, dist nằm trong frontend/dist)
   app.use(express.static(path.join(__dirname, '..', '..', 'frontend', 'dist')));
-  app
-    .getHttpAdapter()
-    .get('*', (req: express.Request, res: express.Response) => {
-      res.sendFile(
-        path.join(__dirname, '..', '..', 'frontend', 'dist', 'index.html'),
-      );
-    });
+  app.use((req, res, next) => {
+    res.sendFile(
+      path.join(__dirname, '..', '..', 'frontend', 'dist', 'index.html'),
+    );
+  });
 
   // Lắng nghe mọi địa chỉ IP (cho phép truy cập từ máy khác)
   await app.listen(3000, '0.0.0.0');
