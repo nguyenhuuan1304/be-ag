@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import * as path from 'path';
 import * as express from 'express';
+import { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,15 +18,24 @@ async function bootstrap() {
 
   // Cho phép frontend gọi đến backend
   app.enableCors({
-    origin: true,
+    origin: [
+      'http://localhost:3000',
+      'http://192.168.197.155:3000',
+      'http://localhost:5173',
+    ],
     credentials: true,
   });
 
-  // Serve React frontend từ NestJS (nếu dùng vite, dist nằm trong frontend/dist)
-  app.use(express.static(path.join(__dirname, '..', '..', 'frontend', 'dist')));
-  app.use((req, res, next) => {
+  // Serve React build
+  app.use(express.static(path.join(__dirname, '..', '..', 'fe-ag', 'dist')));
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path.startsWith('/auth') || req.path.startsWith('/api')) {
+      return next();
+    }
+
     res.sendFile(
-      path.join(__dirname, '..', '..', 'frontend', 'dist', 'index.html'),
+      path.join(__dirname, '..', '..', 'fe-ag', 'dist', 'index.html'),
     );
   });
 
