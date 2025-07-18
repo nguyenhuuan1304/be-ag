@@ -198,65 +198,114 @@ export class CustomerService {
       pass: configEmail[0].password,
     };
 
-    for (const transaction of availableTransactions) {
-      if (!transaction.is_send_email && !transaction.is_sending_email) {
-        const foundCustomer = customerAvailableTransactions.find(
-          (cust) => cust.custno === transaction.custno,
-        );
-        if (foundCustomer) {
+    // Nhóm các customer theo expected_declaration_date của transactions
+    const customersGroupedByExpectedDate: Array<{
+      customer: Customer;
+      transactions: Transaction[];
+      expected_declaration_date: string;
+    }> = [];
+
+    // Tạo một Map để nhóm theo expected_declaration_date
+    const groupMap = new Map<string, { customer: Customer; transactions: Transaction[] }[]>();
+
+    for (const customer of customerAvailableTransactions) {
+      for (const tx of customer.transactions) {
+        const expectedDateRaw = tx.expected_declaration_date || '';
+        const expectedDate =
+          expectedDateRaw instanceof Date
+            ? expectedDateRaw.toISOString()
+            : expectedDateRaw.toString();
+        if (!groupMap.has(expectedDate)) {
+          groupMap.set(expectedDate, []);
+        }
+        const groupArr = groupMap.get(expectedDate)!;
+        // Tìm customer item theo custno
+        let found = groupArr.find((item) => item.customer.custno === customer.custno);
+        if (!found) {
+          found = { customer, transactions: [] };
+          groupArr.push(found);
+        }
+        // Nếu đã có customer item, chỉ push transaction nếu expected_declaration_date bằng nhau
+        if (
+          tx.expected_declaration_date &&
+          tx.expected_declaration_date.toString() === expectedDate
+        ) {
+          found.transactions.push(tx);
+        }
+      }
+    }
+
+    // Chuyển Map thành mảng kết quả
+    for (const [expected_declaration_date, groupArr] of groupMap.entries()) {
+      for (const item of groupArr) {
+        customersGroupedByExpectedDate.push({
+          customer: item.customer,
+          transactions: item.transactions,
+          expected_declaration_date,
+        });
+      }
+    }
+
+    for (const customer of customersGroupedByExpectedDate) {
+      const transactionsContent: Transaction[] = [];
+      for (const transaction of customer.transactions) {
+        if (!transaction.is_send_email && !transaction.is_sending_email) {
+          transactionsContent.push(transaction);
           await this.transactionRepository.update(transaction.id, {
             is_sending_email: true,
           });
-          // 2. Tính ngày gửi: expected_declaration_date - 10 ngày
-          let sendDate: Date = new Date();
-          if (transaction.expected_declaration_date) {
-            sendDate = dayjs(transaction.expected_declaration_date)
-              .subtract(10, 'day')
-              .hour(10)
-              .minute(0)
-              .second(0)
-              .millisecond(0)
-              .toDate();
-          }
-          const now = new Date();
-          if (sendDate && sendDate > now) {
-            const cronTime = `${sendDate.getMinutes()} ${sendDate.getHours()} ${sendDate.getDate()} ${sendDate.getMonth() + 1} *`;
-            console.log(
-              `⏰ Gửi email giao dịch cho ${foundCustomer.email} lúc ${sendDate.toLocaleString()}`,
-            );
-            cron.schedule(cronTime, () => {
+        }
+      }
+      // Tính ngày gửi: expected_declaration_date - 10 ngày
+      let sendDate: Date = new Date();
+      if (customer.expected_declaration_date) {
+        sendDate = dayjs(customer.expected_declaration_date)
+          .subtract(10, 'day')
+          .hour(10)
+          .minute(0)
+          .second(0)
+          .millisecond(0)
+          .toDate();
+        const now = new Date();
+        if (sendDate && sendDate > now) {
+          const cronTime = `${sendDate.getMinutes()} ${sendDate.getHours()} ${sendDate.getDate()} ${sendDate.getMonth() + 1} *`;
+          console.log(
+            `⏰ Gửi email giao dịch cho ${customer.customer.email} lúc ${sendDate.toLocaleString()}`,
+          );
+          cron.schedule(cronTime, async () => {
+            try {
               this.sendEmail(
                 configAuth,
-                foundCustomer.email,
+                customer.customer.email,
                 '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
-                transaction,
-              )
-                .then(() => {
-                  // Cập nhật is_send_email
-                  this.transactionRepository.update(transaction.id, {
-                    is_send_email: true,
-                  });
-                })
-                .catch((error) => {
-                  console.error('Error sending email:', error);
-                });
-            });
-          } else {
-            this.sendEmail(
-              configAuth,
-              foundCustomer.email,
-              '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
-              transaction,
-            )
-              .then(() => {
-                // Cập nhật is_send_email
-                this.transactionRepository.update(transaction.id, {
+                transactionsContent,
+              );
+              // Cập nhật is_send_email
+              for (const transaction of customer.transactions) {
+                await this.transactionRepository.update(transaction.id, {
                   is_send_email: true,
                 });
-              })
-              .catch((error) => {
-                console.error('Error sending email:', error);
+              }
+            } catch (error) {
+              console.error('Error sending email:', error);
+            }
+          });
+        } else {
+          try {
+            this.sendEmail(
+              configAuth,
+              customer.customer.email,
+              '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
+              transactionsContent,
+            );
+            // Cập nhật is_send_email
+            for (const transaction of customer.transactions) {
+              await this.transactionRepository.update(transaction.id, {
+                is_send_email: true,
               });
+            }
+          } catch (error) {
+            console.error('Error sending email:', error);
           }
         }
       }
@@ -270,42 +319,36 @@ export class CustomerService {
     };
   }
 
-  generateTransactionTableHtml(transaction: CustomerData): string {
-    const row = `
-    <tr>
-      <td style="padding: 8px;">${transaction.trref}</td>
-      <td style="padding: 8px;">${transaction.custno}</td>
-      <td style="padding: 8px;">${transaction.custnm}</td>
+  generateTransactionTableHtml(transactions: CustomerData[]): string {
+    const rows = transactions
+      .map(
+        (tx) => `
+      <tr>
+      <td style="padding: 8px;">${tx.trref}</td>
+      <td style="padding: 8px;">${tx.custno}</td>
+      <td style="padding: 8px;">${tx.custnm}</td>
       <td style="padding: 8px;">
-        ${
-          transaction.tradate
-            ? dayjs(transaction.tradate).format('DD/MM/YYYY')
-            : ''
-        }
+        ${tx.tradate ? dayjs(tx.tradate).format('DD/MM/YYYY') : ''}
       </td>
-      <td style="padding: 8px;">${transaction.currency}</td>
-      <td style="padding: 8px;">${transaction.amount}</td>
-      <td style="padding: 8px;">${transaction.bencust}</td>
-      <td style="padding: 8px;">${transaction.contract}</td>
-      <td style="padding: 8px;">${transaction.document}</td>
+      <td style="padding: 8px;">${tx.currency}</td>
+      <td style="padding: 8px;">${tx.amount}</td>
+      <td style="padding: 8px;">${tx.bencust}</td>
+      <td style="padding: 8px;">${tx.contract}</td>
+      <td style="padding: 8px;">${tx.document}</td>
       <td style="padding: 8px;">
-        ${
-          transaction.expected_declaration_date
-            ? dayjs(transaction.expected_declaration_date).format('DD/MM/YYYY')
-            : ''
-        }
+        ${tx.expected_declaration_date ? dayjs(tx.expected_declaration_date).format('DD/MM/YYYY') : ''}
       </td>
       <td style="padding: 8px;">
-        ${dayjs(transaction.additional_date).format('DD/MM/YYYY')}
+        ${tx.additional_date ? dayjs(tx.additional_date).format('DD/MM/YYYY') : ''}
       </td>
-    </tr>
-  `;
+      </tr>
+      `).join('');
 
     return `
     <div style="font-family: Arial, sans-serif; font-size: 14px;">
       <p>
         Kính gửi Quý khách:
-        <span style="font-weight: 700;">${transaction.custnm}</span>,
+        <span style="font-weight: 700;">${transactions[0].custnm}</span>,
       </p>
       <p>Dưới đây là danh sách giao dịch cần bổ sung chứng từ:</p>
       <table cellpadding="0" cellspacing="0" border="1" style="border-collapse: collapse; width: 100%;">
@@ -325,7 +368,7 @@ export class CustomerService {
           </tr>
         </thead>
         <tbody>
-          ${row}
+          ${rows}
         </tbody>
       </table>
       <div style="margin-top: 20px; color: #76438b;">
@@ -354,7 +397,7 @@ export class CustomerService {
     subject: string,
     data: any = {},
   ): Promise<void> {
-    const htmlBody = this.generateTransactionTableHtml(data as CustomerData);
+    const htmlBody = this.generateTransactionTableHtml(data as CustomerData[]);
 
     let transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
