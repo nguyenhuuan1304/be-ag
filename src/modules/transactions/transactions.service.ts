@@ -303,6 +303,33 @@ export class TransactionsService {
     };
   }
 
+  async findByPostInspection(
+    postInspection: boolean,
+    page: number,
+    limit: number,
+    search?: string,
+  ) {
+    const where: any = { post_inspection: postInspection };
+    if (search) {
+      where.custnm = Raw((alias) => `LOWER(${alias}) LIKE :search`, {
+        search: `%${search.toLowerCase()}%`,
+      });
+    }
+    const [results, total] = await this.transactionsRepository.findAndCount({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { updated_at: 'ASC' },
+    });
+
+    return {
+      data: results,
+      total,
+      page,
+      lastPage: Math.ceil(total / limit),
+    };
+  }
+
   async exportToExcel(status: 'Chưa bổ sung' | 'Quá hạn'): Promise<Buffer> {
     const transactions = await this.transactionsRepository.find({
       where:
