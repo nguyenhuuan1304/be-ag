@@ -54,4 +54,11 @@ export class CustomerController {
       search,
     );
   }
+
+  @Post('resend-email')
+  async reSendEmailToCustomer(
+    @Query('transactionId') transactionId: number,
+  ): Promise<{ success: boolean }> {
+    return this.customerService.sendEmailToCustomer(transactionId);
+  }
 }

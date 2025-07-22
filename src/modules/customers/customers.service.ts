@@ -319,6 +319,47 @@ export class CustomerService {
     };
   }
 
+  async sendEmailToCustomer(transactionId: number) {
+    const transaction = await this.transactionRepository.findOne({
+      where: { id: transactionId },
+    });
+
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+
+    // Lấy customer theo custno
+    const customer = await this.customerRepository.findOne({
+      where: { custno: transaction.custno },
+    });
+
+    if (!customer) {
+      throw new Error('Customer not found');
+    }
+
+    const configEmail = await this.configEmailRepository.find();
+    if (!configEmail || !configEmail.length) {
+      throw new Error('Email configuration not found');
+    }
+    const configAuth = {
+      user: configEmail[0].email,
+      pass: configEmail[0].password,
+    };
+
+    try {
+      this.sendEmail(
+        configAuth,
+        customer.email,
+        '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
+        [transaction],
+      );
+      return { success: true };
+    } catch (error) {
+      console.error('Error sending email:', error);
+      return { success: false };
+    }
+  }
+
   generateTransactionTableHtml(transactions: CustomerData[]): string {
     const rows = transactions
       .map(
