@@ -93,6 +93,7 @@ export class TransactionsController {
     @Query('page') page: string,
     @Query('limit') limit: string,
     @Query('search') search: string,
+    @Query('searchField') searchField: string,
   ) {
     if (!['Chưa bổ sung', 'Quá hạn', 'Đã bổ sung'].includes(status)) {
       throw new BadRequestException('Invalid status');
@@ -104,6 +105,7 @@ export class TransactionsController {
       pageNumber,
       limitNumber,
       search,
+      searchField,
     );
   }
 
@@ -128,6 +130,7 @@ export class TransactionsController {
     @Query('page') page: string,
     @Query('limit') limit: string,
     @Query('search') search: string,
+    @Query('searchField') searchField: string,
   ) {
     const pageNumber = parseInt(page) || 1;
     const limitNumber = parseInt(limit) || 10;
@@ -136,6 +139,7 @@ export class TransactionsController {
       pageNumber,
       limitNumber,
       search,
+      searchField,
     );
   }
 
