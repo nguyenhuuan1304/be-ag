@@ -436,7 +436,7 @@ export class CustomerService {
     },
     to: string,
     subject: string,
-    data: any = {},
+    data: any[] = [],
   ): Promise<void> {
     const htmlBody = this.generateTransactionTableHtml(data as CustomerData[]);
 
