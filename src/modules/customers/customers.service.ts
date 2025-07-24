@@ -206,7 +206,10 @@ export class CustomerService {
     }> = [];
 
     // Tạo một Map để nhóm theo expected_declaration_date
-    const groupMap = new Map<string, { customer: Customer; transactions: Transaction[] }[]>();
+    const groupMap = new Map<
+      string,
+      { customer: Customer; transactions: Transaction[] }[]
+    >();
 
     for (const customer of customerAvailableTransactions) {
       for (const tx of customer.transactions) {
@@ -220,7 +223,9 @@ export class CustomerService {
         }
         const groupArr = groupMap.get(expectedDate)!;
         // Tìm customer item theo custno
-        let found = groupArr.find((item) => item.customer.custno === customer.custno);
+        let found = groupArr.find(
+          (item) => item.customer.custno === customer.custno,
+        );
         if (!found) {
           found = { customer, transactions: [] };
           groupArr.push(found);
@@ -257,58 +262,76 @@ export class CustomerService {
         }
       }
       // Tính ngày gửi: expected_declaration_date - 10 ngày
-      let sendDate: Date = new Date();
-      if (customer.expected_declaration_date) {
-        sendDate = dayjs(customer.expected_declaration_date)
-          .subtract(10, 'day')
-          .hour(10)
-          .minute(0)
-          .second(0)
-          .millisecond(0)
-          .toDate();
-        const now = new Date();
-        if (sendDate && sendDate > now) {
-          const cronTime = `${sendDate.getMinutes()} ${sendDate.getHours()} ${sendDate.getDate()} ${sendDate.getMonth() + 1} *`;
-          console.log(
-            `⏰ Gửi email giao dịch cho ${customer.customer.email} lúc ${sendDate.toLocaleString()}`,
+      // let sendDate: Date = new Date();
+      // if (customer.expected_declaration_date) {
+      //   sendDate = dayjs(customer.expected_declaration_date)
+      //     .subtract(10, 'day')
+      //     .hour(10)
+      //     .minute(0)
+      //     .second(0)
+      //     .millisecond(0)
+      //     .toDate();
+      //   const now = new Date();
+      //   if (sendDate && sendDate > now) {
+      //     const cronTime = `${sendDate.getMinutes()} ${sendDate.getHours()} ${sendDate.getDate()} ${sendDate.getMonth() + 1} *`;
+      //     console.log(
+      //       `⏰ Gửi email giao dịch cho ${customer.customer.email} lúc ${sendDate.toLocaleString()}`,
+      //     );
+      //     cron.schedule(cronTime, async () => {
+      //       try {
+      //         this.sendEmail(
+      //           configAuth,
+      //           customer.customer.email,
+      //           '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
+      //           transactionsContent,
+      //         );
+      //         // Cập nhật is_send_email
+      //         for (const transaction of customer.transactions) {
+      //           await this.transactionRepository.update(transaction.id, {
+      //             is_send_email: true,
+      //           });
+      //         }
+      //       } catch (error) {
+      //         console.error('Error sending email:', error);
+      //       }
+      //     });
+      //   } else {
+      //     try {
+      //       this.sendEmail(
+      //         configAuth,
+      //         customer.customer.email,
+      //         '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
+      //         transactionsContent,
+      //       );
+      //       // Cập nhật is_send_email
+      //       for (const transaction of customer.transactions) {
+      //         await this.transactionRepository.update(transaction.id, {
+      //           is_send_email: true,
+      //         });
+      //       }
+      //     } catch (error) {
+      //       console.error('Error sending email:', error);
+      //     }
+      //   }
+      // }
+      cron.schedule('00 14 * * *', async () => {
+        try {
+          this.sendEmail(
+            configAuth,
+            customer.customer.email,
+            '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
+            transactionsContent,
           );
-          cron.schedule(cronTime, async () => {
-            try {
-              this.sendEmail(
-                configAuth,
-                customer.customer.email,
-                '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
-                transactionsContent,
-              );
-              // Cập nhật is_send_email
-              for (const transaction of customer.transactions) {
-                await this.transactionRepository.update(transaction.id, {
-                  is_send_email: true,
-                });
-              }
-            } catch (error) {
-              console.error('Error sending email:', error);
-            }
-          });
-        } else {
-          try {
-            this.sendEmail(
-              configAuth,
-              customer.customer.email,
-              '[NO REPLY] Thông báo danh sách giao dịch cần bổ sung chứng từ',
-              transactionsContent,
-            );
-            // Cập nhật is_send_email
-            for (const transaction of customer.transactions) {
-              await this.transactionRepository.update(transaction.id, {
-                is_send_email: true,
-              });
-            }
-          } catch (error) {
-            console.error('Error sending email:', error);
+          // Cập nhật is_send_email
+          for (const transaction of customer.transactions) {
+            await this.transactionRepository.update(transaction.id, {
+              is_send_email: true,
+            });
           }
+        } catch (error) {
+          console.error('Error sending email:', error);
         }
-      }
+      });
     }
 
     return {
@@ -383,7 +406,9 @@ export class CustomerService {
         ${tx.additional_date ? dayjs(tx.additional_date).format('DD/MM/YYYY') : ''}
       </td>
       </tr>
-      `).join('');
+      `,
+      )
+      .join('');
 
     return `
     <div style="font-family: Arial, sans-serif; font-size: 14px;">
@@ -431,8 +456,8 @@ export class CustomerService {
   // Hàm gửi email
   async sendEmail(
     auth: {
-      user: string,
-      pass: string,
+      user: string;
+      pass: string;
     },
     to: string,
     subject: string,
