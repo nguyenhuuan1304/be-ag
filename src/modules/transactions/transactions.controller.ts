@@ -130,6 +130,7 @@ export class TransactionsController {
     @Query('page') page: string,
     @Query('limit') limit: string,
     @Query('search') search: string,
+    @Query('searchField') searchField: string,
   ) {
     const pageNumber = parseInt(page) || 1;
     const limitNumber = parseInt(limit) || 10;
@@ -138,6 +139,7 @@ export class TransactionsController {
       pageNumber,
       limitNumber,
       search,
+      searchField,
     );
   }
 

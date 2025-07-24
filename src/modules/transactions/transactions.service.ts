@@ -315,12 +315,19 @@ export class TransactionsService {
     page: number,
     limit: number,
     search?: string,
+    searchField?: string,
   ) {
     const where: any = { post_inspection: postInspection };
     if (search) {
-      where.custnm = Raw((alias) => `LOWER(${alias}) LIKE :search`, {
-        search: `%${search.toLowerCase()}%`,
-      });
+      if (searchField === 'Số giao dịch') {
+        where.trref = Raw((alias) => `LOWER(${alias}) LIKE :search`, {
+          search: `%${search.toLowerCase()}%`,
+        });
+      } else {
+        where.custnm = Raw((alias) => `LOWER(${alias}) LIKE :search`, {
+          search: `%${search.toLowerCase()}%`,
+        });
+      }
     }
     const [results, total] = await this.transactionsRepository.findAndCount({
       where,
