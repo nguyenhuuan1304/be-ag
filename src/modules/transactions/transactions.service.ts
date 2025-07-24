@@ -207,6 +207,7 @@ export class TransactionsService {
     page: number,
     limit: number,
     search?: string,
+    searchField?: string,
   ) {
     const today = new Date();
     const conditions: any = [];
@@ -232,9 +233,15 @@ export class TransactionsService {
     if (search) {
       const searchLower = search.toLowerCase();
       conditions.forEach((condition: any) => {
-        condition.custnm = Raw(
-          (alias) => `LOWER(${alias}) LIKE '%${searchLower}%'`,
-        );
+        if (searchField === 'Số giao dịch') {
+          condition.trref = Raw(
+            (alias) => `LOWER(${alias}) LIKE '%${searchLower}%'`,
+          );
+        } else {
+          condition.custnm = Raw(
+            (alias) => `LOWER(${alias}) LIKE '%${searchLower}%'`,
+          );
+        }
       });
     }
 
