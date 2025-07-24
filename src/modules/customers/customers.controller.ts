@@ -55,7 +55,7 @@ export class CustomerController {
     );
   }
 
-  @Post('resend-email')
+  @Get('resend-email')
   async reSendEmailToCustomer(
     @Query('transactionId') transactionId: number,
   ): Promise<{ success: boolean }> {
