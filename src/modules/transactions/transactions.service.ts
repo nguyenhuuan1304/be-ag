@@ -8,6 +8,7 @@ import { Repository, Like, LessThan, MoreThanOrEqual, Raw } from 'typeorm';
 import { Transaction } from '../../entities/transaction.entity';
 import * as XLSX from 'xlsx';
 import { format, isValid, parse } from 'date-fns';
+import { TransactionDto } from 'src/dto/transaction.dto';
 
 @Injectable()
 export class TransactionsService {
@@ -517,5 +518,49 @@ export class TransactionsService {
     await this.transactionsRepository.save(updatedTransaction);
 
     return updatedTransaction;
+  }
+
+  async createTransaction(transactionDto: TransactionDto): Promise<any> {
+    // Contract extraction
+    const contractMatch = transactionDto.remark?.match(/HD\s+([^\s,]+)/i);
+    const contract_number = contractMatch ? contractMatch[1] : undefined;
+    const contractFullMatch = transactionDto.remark.match(/HD\s+[^,]+/i);
+    let contract = '';
+    if (contractFullMatch) {
+      contract = contractFullMatch[0];
+    }
+
+    let additionalDate: Date | null = null;
+    if (transactionDto.esdate) {
+      const esdateObj = new Date(transactionDto.esdate);
+      additionalDate = new Date(esdateObj);
+      additionalDate.setDate(esdateObj.getDate() + 30);
+      additionalDate.setHours(12); // giữ giờ cố định
+    }
+
+    const payload = {
+      trref: transactionDto.trref,
+      custno: transactionDto.custno,
+      custnm: transactionDto.custnm,
+      tradate: transactionDto.tradate,
+      currency: transactionDto.currency,
+      amount: parseFloat(transactionDto.amount.replace(/,/g, '')),
+      bencust: transactionDto.bencust,
+      document: transactionDto.document,
+      remark: transactionDto.remark,
+      contract_number,
+      contract,
+      expected_declaration_date: transactionDto.esdate,
+      additional_date: additionalDate,
+      note: transactionDto.note,
+      status: 'Chưa bổ sung',
+      censored: false,
+      post_inspection: false,
+      is_document_added: false,
+      is_send_email: false,
+      is_sending_email: false,
+    };
+    const transaction = this.transactionsRepository.create(payload);
+    return this.transactionsRepository.save(transaction);
   }
 }
