@@ -23,6 +23,7 @@ import { GetUser } from 'src/auth/get-user.decorator';
 import { Role } from 'src/enum/role.enum';
 import { RolesGuard } from 'src/role/roles.guard';
 import { Roles } from 'src/role/roles.decorator';
+import { TransactionDto } from 'src/dto/transaction.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('transactions')
@@ -229,5 +230,10 @@ export class TransactionsController {
     @GetUser() user: { id: number; fullName: string; role: string },
   ) {
     return this.transactionService.updateCustomerForHK(+id, updateData, user);
+  }
+
+  @Post('/add')
+  addTransaction(@Body() transactionDto: TransactionDto) {
+    return this.transactionService.createTransaction(transactionDto);
   }
 }
